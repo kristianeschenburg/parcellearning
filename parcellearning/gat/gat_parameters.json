@@ -1,0 +1,47 @@
+{
+  "model": "GAT",
+
+  "data": {
+    "in": "/hpcdrive/parcellation/",
+    "out": "/hpcdrive/parcellation/models/gat/primarysensory/",
+    "training": "/hpcdrive/parcellation/data/regional/primarysensory/training.bin",
+    "validation": "/hpcdrive/parcellation/data/regional/primarysensory/validation.bin",
+    "testing": "/hpcdrive/parcellation/data/regional/primarysensory/testing.bin"
+  },
+  
+  "features": ["regionalized", 
+                "spectral", 
+                "curv", 
+                "myelin", 
+                "sulcal"],
+
+  "model_parameters": {
+      "in_dim": 80,
+      "num_classes": 181,
+      "num_heads": [8,8],
+      "num_layers": 3,
+      "num_hidden": 32,
+      "residual": "False",
+      "feat_drop": 0.2,
+      "attn_drop": 0.2,
+      "negative_slope": 0.2,
+      "activation": "torch.nn.functional.leaky_relu",
+      "allow_zero_in_degree": "True"
+  },
+
+  "optimizer_parameters": {
+    "lr": 0.005,
+    "weight_decay": 5e-4
+  },
+
+  "training_parameters": {
+    "epochs": 600,
+    "n_batch": 4,
+    "verbose": "False"
+  },
+
+  "stopping_parameters": {
+    "mode": "lower",
+    "patience": 20
+  }
+}
