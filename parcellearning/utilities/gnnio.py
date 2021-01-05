@@ -50,11 +50,11 @@ class GCNData(DGLDataset):
                  save_dir=None,
                  force_reload=False,
                  verbose=False,
-                 labels = {'dir': '/hpcdrive/parcellation/data/labels/',
+                 labels = {'dir': '/projects3/parcellation/data/labels/',
                           'extension': '.L.CorticalAreas.fixed.32k_fs_LR.label.gii'},
-                 graphs = {'dir': '/hpcdrive/parcellation/data/surfaces/',
+                 graphs = {'dir': '/projects3/parcellation/data/surfaces/',
                            'extension': '.L.midthickness.32k_fs_LR.acpc_dc.surf.gii'},
-                 features={'regionalized': {'dir': '/hpcdrive/parcellation/data/regionalization/Destrieux/',
+                 features={'regionalized': {'dir': '/projects3/parcellation/data/regionalization/Destrieux/',
                                             'extension': '.L.aparc.a2009s.Mean.CrossCorr.csv'}}):
 
         self.data_name = data_name
@@ -223,10 +223,10 @@ def standardize(dataset):
     return dataset
 
 def dataset(features=None,
-             dir='/hpcdrive/parcellation/',
+            dir='/projects3/parcellation/',
              dType='training',
              norm=True,
-             data_path='/hpcdrive/parcellation/data/'):
+            data_path='/projects3/parcellation/data/'):
 
     dName = '%sdata/%s.bin' % (dir, dType)
     subject_list = '%ssubjects/%s.txt' % (dir, dType)
