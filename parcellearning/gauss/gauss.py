@@ -103,7 +103,7 @@ class GAUSS(nn.Module):
                                           allow_zero_in_degree=allow_zero_in_degree))
 
     
-    def forward(self, g, inputs):
+    def forward(self, g=None, inputs=None):
         
         """
         Parameters:

@@ -81,7 +81,7 @@ class GCN(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
 
-    def forward(self, G, features):
+    def forward(self, g=None, inputs=None):
         """
         Apply a forward pass through the network, given the current weights.
         
@@ -99,7 +99,7 @@ class GCN(nn.Module):
         for i, layer in enumerate(self.layers):
             if i != 0:
                 h = self.dropout(h)
-            h = layer(G, h)
+            h = layer(g, h)
 
         return h
 
