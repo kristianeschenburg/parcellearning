@@ -12,7 +12,7 @@ parcellearning
 Python project for learning cortical maps using graph neural networks
 
 * Free software: 3-clause BSD license
-* Documentation: (COMING SOON!) https://kristianeschenburg.github.io/parcellearning.
+* Explanation of various algorithms can be found here: http://kristianeschenburg.netlify.app/
 
 Features
 --------
