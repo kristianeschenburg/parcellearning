@@ -1,7 +1,4 @@
-from ..cgat import cgat
-from ..gat import gat
-from ..gauss import gauss
-from ..gcn import gcn
+from parcellearning import cgat, gat, gauss, gcn
 
 import argparse
 import json

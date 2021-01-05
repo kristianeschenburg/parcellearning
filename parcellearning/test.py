@@ -1,5 +1,5 @@
 import argparse, json, os, random, subprocess, sys, time
-sys.path.append("./utilities/")
+from parcellearning.utilities import gnnio, load
 
 from pathlib import Path
 
@@ -11,7 +11,6 @@ from sklearn.metrics import f1_score
 import torch
 
 from niio import write
-import gnnio, load
 
 def main(args):
 
