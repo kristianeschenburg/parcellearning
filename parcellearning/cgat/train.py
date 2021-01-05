@@ -117,7 +117,10 @@ def main(args):
             batch_Y = batch.ndata['label']
 
             # push batch through network
-            batch_logits, batch_lg, batch_lb = model(batch, batch_X, batch_Y)
+            batch_logits = model(batch, batch_X, batch_Y)
+            # get graph structure and class boundary losses
+            batch_lg = model.Lg
+            batch_lb = model.Lb
             
             # compute batch performance
             # loss

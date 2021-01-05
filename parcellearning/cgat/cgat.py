@@ -143,7 +143,10 @@ class CGAT(nn.Module):
         Lg += self.cgat_layers[-1].Lg
         Lb += self.cgat_layers[-1].Lb
 
-        return logits, Lg, Lb
+        self.Lg = Lg
+        self.Lb = Lb
+
+        return logits
 
     def save(self, filename):
 

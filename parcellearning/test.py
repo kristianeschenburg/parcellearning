@@ -53,7 +53,7 @@ def main(args):
 
             P = np.zeros((32492, 2))
 
-            test_logits,_,_ = model(graph, test_X, test_Y)
+            test_logits = model(**{'g': graph, 'inputs': test_X, 'label': test_Y})
             _,indices = torch.max(test_logits, dim=1)
             correct = torch.sum(indices == test_Y)
 
