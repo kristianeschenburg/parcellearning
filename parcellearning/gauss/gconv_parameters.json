@@ -2,11 +2,11 @@
     "model": "GAUSS",
 
     "data": {
-        "in": "/hpcdrive/parcellation/",
-        "out": "/hpcdrive/parcellation/models/gauss/primarysensory/",
-        "training": "/hpcdrive/parcellation/data/regional/primarysensory/training.bin",
-        "validation": "/hpcdrive/parcellation/data/regional/primarysensory/validation.bin",
-        "testing": "/hpcdrive/parcellation/data/regional/primarysensory/validation.bin"
+        "in": "/projects3/parcellation/",
+        "out": "/projects3/parcellation/models/gauss/primarysensory/",
+        "training": "/projects3/parcellation/data/regional/primarysensory/training.bin",
+        "validation": "/projects3/parcellation/data/regional/primarysensory/validation.bin",
+        "testing": "/projects3/parcellation/data/regional/primarysensory/validation.bin"
     },
 
     "features": [
