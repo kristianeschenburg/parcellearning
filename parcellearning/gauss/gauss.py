@@ -1,7 +1,4 @@
-import sys
-sys.path.append("../conv/")
-
-from gausconv import GAUSConv
+from ..conv.gausconv import GAUSConv
 
 import dgl
 from dgl.data import DGLDataset

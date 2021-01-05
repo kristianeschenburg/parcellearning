@@ -14,7 +14,8 @@ import torch
 import torch.nn.functional as F
 import dgl.function as fn
 
-import cgat, gnnio
+from . import gat
+import gnnio
 from early_stop import EarlyStopping
 from batch import partition_graphs
 
@@ -48,11 +49,11 @@ def main(args):
     # - - - - - - - - - - - - - - - - - - - - #
 
     # load training and validation data
-    training = gnnio.loaddata(dType='training', 
+    training = gnnio.dataset(dType='training', 
                               features=features, 
                               data_path=schema['data']['training'])
 
-    validation = gnnio.loaddata(dType='validation', 
+    validation = gnnio.dataset(dType='validation', 
                                 features=features, 
                                 data_path=schema['data']['validation'])
 

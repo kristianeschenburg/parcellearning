@@ -32,10 +32,10 @@ def main(args):
     dSuffix = '.'.join(features)
 
     training_list = '%straining.txt' % (data_dir)
-    training = gnnio.loaddata(args.features, training_list, dType='training')
+    training = gnnio.dataset(args.features, training_list, dType='training')
 
     validation_list = '%svalidation.txt' % (data_dir)
-    validation = gnnio.loaddata(args.features, validation_list, dType='validation')
+    validation = gnnio.dataset(args.features, validation_list, dType='validation')
 
     # set variables for GCN model
     n_features = training.ndata['X'].shape[1]

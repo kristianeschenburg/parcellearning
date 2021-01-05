@@ -1,3 +1,3 @@
-from . import (gauss)
+from .gauss import GAUSS
 
-__all__ = ['gauss']
+__all__ = ['GAUSS']

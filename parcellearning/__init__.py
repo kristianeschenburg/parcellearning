@@ -1,7 +1,3 @@
-from .cgat import *
-from .conv import *
-from .functional import *
-from .gat import *
-from .gauss import *
-from .tests import *
-from .utilities import *
+__all__ = ['conv', 'functional', 'cgat', 'gat', 'gauss', 'gcn', 'utilities']
+
+from . import *

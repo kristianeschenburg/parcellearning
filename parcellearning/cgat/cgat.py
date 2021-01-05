@@ -1,7 +1,4 @@
-import sys
-sys.path.append('../conv/')
-from cgatconv import CGATConv
-
+from ..conv import cgatconv
 import numpy as np
 
 import torch

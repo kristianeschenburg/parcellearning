@@ -1,3 +1,3 @@
-from . import (gcn)
+from .gcn import GCN
 
-__all__ = ['gcn']
+__all__ = ['GCN']

@@ -1,3 +1,3 @@
-from . import (cgat)
+from .cgat import CGAT
 
-__all__ = ['cgat']
+__all__ = ['CGAT']

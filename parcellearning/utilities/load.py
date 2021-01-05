@@ -1,18 +1,12 @@
-import sys
-sys.path.append('../cgat/')
-sys.path.append('../gat/')
-sys.path.append('../gcn/')
-sys.path.append('../gauss/')
+from ..cgat import cgat
+from ..gat import gat
+from ..gauss import gauss
+from ..gcn import gcn
 
 import argparse
 import json
 import torch
 import torch.nn.functional as F
-
-from gat import gat
-from cgat import cgat
-from gcn import gcn
-from gauss import gauss
 
 def load_model(schema, model_file):
 
@@ -43,4 +37,26 @@ def load_model(schema, model_file):
     model.load_state_dict(torch.load(model_file)['model_state_dict'])
 
     return model
+
+
+def load_schema(schema_file):
+    
+    """
+    
+    """
+
+    with open(schema_file, 'r') as f:
+        parameters = json.load(f)
+    
+    for param in ['model_parameters', 'loss_parameters', 'optimizer_parameters']:
+        if param in parameters:
+            for k,v in parameters[param].items():
+                if v == 'True':
+                    parameters[param][k] = True
+                elif v == 'False':
+                    parameters[param][k] = False
+                if k == 'activation':
+                    parameters[param][k] = eval(v)
+
+    return parameters
     

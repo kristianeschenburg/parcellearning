@@ -222,62 +222,7 @@ def standardize(dataset):
 
     return dataset
 
-def saveargs(args, filename):
-
-    """
-    Save arguments provided to saved NN model train.py script
-
-    Parameters:
-    - - - - -
-    args: dict
-        parsed arguments from train.py script
-    filename: str
-        name of file to which arguments were written
-    """
-
-    with open(filename, 'w') as f:
-        json.dump(args.__dict__, f, indent=2)
-
-def loadargs(filename):
-
-    """
-    Load arguments provided to saved NN model train.py script.
-
-    Parameters:
-    - - - - -
-    filename: str
-        name of file to which arguments were written
-    """
-
-    parser = argparse.ArgumentParser()
-    args = parser.parse_args()
-    with open(filename, 'r') as f:
-        args.__dict__ = json.load(f)
-
-    return args
-
-def load_schema(schema_file):
-    
-    """
-    
-    """
-
-    with open(schema_file, 'r') as f:
-        parameters = json.load(f)
-    
-    for param in ['model_parameters', 'loss_parameters', 'optimizer_parameters']:
-        if param in parameters:
-            for k,v in parameters[param].items():
-                if v == 'True':
-                    parameters[param][k] = True
-                elif v == 'False':
-                    parameters[param][k] = False
-                if k == 'activation':
-                    parameters[param][k] = eval(v)
-
-    return parameters
-
-def loaddata(features=None,
+def dataset(features=None,
              dir='/hpcdrive/parcellation/',
              dType='training',
              norm=True,

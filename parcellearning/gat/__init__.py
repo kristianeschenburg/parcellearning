@@ -1,3 +1,3 @@
-from . import (gat)
+from .gat import GAT
 
-__all__ = ['gat']
+__all__ = ['GAT']
