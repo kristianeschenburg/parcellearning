@@ -1,1 +1,8 @@
 # List required packages in this file, one per line.
+numpy>=1.11.0
+scipy>=0.17.0
+scikit-learn>=0.22.0
+matplotlib>=2.0.0
+nibabel
+dgl
+torch
