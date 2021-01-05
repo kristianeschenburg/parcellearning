@@ -1,15 +1,15 @@
+import numpy as np
+
 import dgl
-from dgl.data import DGLDataset
 from dgl import data
+from dgl.data import DGLDataset
+import dgl.function as fn
+from dgl.nn.pytorch import edge_softmax, GATConv
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import numpy as np
-
-import dgl.function as fn
-from dgl.nn.pytorch import edge_softmax, GATConv
 
 class GAT(nn.Module):
     

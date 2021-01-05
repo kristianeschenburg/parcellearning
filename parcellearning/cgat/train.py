@@ -7,16 +7,15 @@ from pathlib import Path
 
 import numpy as np
 
+from parcellearning.utilities import gnnio, early_stop, batch
+from parcellearning import cgat
+
 import dgl
 from dgl.data import register_data_args
 
 import torch
 import torch.nn.functional as F
 import dgl.function as fn
-
-import cgat, gnnio
-from early_stop import EarlyStopping
-from batch import partition_graphs
 
 
 def main(args):
@@ -73,7 +72,7 @@ def main(args):
 
     # initialize early stopper
     stopped_model_output='%s%s.earlystop.Loss.pt' % (out_dir, schema['model'])
-    stopper = EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
+    stopper = early_stop.EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
 
     progress = {k: [] for k in ['Epoch',
                                 'Duration',
@@ -95,7 +94,7 @@ def main(args):
     for epoch in range(TRAIN_PARAMS['epochs']):
 
         # learn model on training data
-        batches = partition_graphs(training, TRAIN_PARAMS['n_batch'])
+        batches = batch.partition_graphs(training, TRAIN_PARAMS['n_batch'])
 
         model.train()
         t0 = time.time()

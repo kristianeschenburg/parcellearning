@@ -1,12 +1,15 @@
-from ..conv import cgatconv
+from parcellearning.conv.cgatconv import CGATConv
 import numpy as np
+
+import dgl
+from dgl import data
+from dgl.data import DGLDataset
+import dgl.function as fn
+from dgl.nn.pytorch import edge_softmax
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-import dgl.function as fn
-from dgl.nn.pytorch import edge_softmax
 
 class CGAT(nn.Module):
     

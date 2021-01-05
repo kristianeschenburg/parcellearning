@@ -1,11 +1,11 @@
 import argparse, copy, json, random, sys, time
-sys.path.append("../utilities/")
-sys.path.append("../functional/")
 
 from shutil import copyfile
 from pathlib import Path
 
 import numpy as np
+from parcellearning.utilities import gnnio, early_stop, batch
+from parcellearning import gat
 
 import dgl
 from dgl.data import register_data_args
@@ -15,9 +15,6 @@ import torch.nn.functional as F
 import dgl.function as fn
 
 from . import gat
-import gnnio
-from early_stop import EarlyStopping
-from batch import partition_graphs
 
 
 def main(args):
@@ -53,7 +50,7 @@ def main(args):
                               features=features, 
                               data_path=schema['data']['training'])
 
-    validation = gnnio.dataset(dType='validation', 
+    validation = gnnio.dataset(dType='validation',
                                 features=features, 
                                 data_path=schema['data']['validation'])
 
@@ -74,7 +71,7 @@ def main(args):
 
     # initialize early stopper
     stopped_model_output='%s%s.earlystop.Loss.pt' % (out_dir, schema['model'])
-    stopper = EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
+    stopper = early_stop.EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
 
     progress = {k: [] for k in ['Epoch',
                                 'Duration',
@@ -87,10 +84,10 @@ def main(args):
 
     dur = []
     print('Training model')
-for epoch in range(TRAIN_PARAMS['epochs']):
+    for epoch in range(TRAIN_PARAMS['epochs']):
 
         # learn model on training data
-        batches = partition_graphs(training, TRAIN_PARAMS['n_batch'])
+        batches = batch.partition_graphs(training, TRAIN_PARAMS['n_batch'])
 
         model.train()
         t0 = time.time()
