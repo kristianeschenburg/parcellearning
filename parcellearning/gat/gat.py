@@ -75,7 +75,7 @@ class GAT(nn.Module):
             num_hidden * self.num_heads, num_classes, self.num_out_heads,
             feat_drop, attn_drop, negative_slope, residual, None))
 
-    def forward(self, g, inputs):
+    def forward(self, , g=None, inputs=None):
         
         """
         Parameters:
