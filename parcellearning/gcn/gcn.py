@@ -81,7 +81,7 @@ class GCN(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
 
-    def forward(self, g=None, inputs=None):
+    def forward(self, g=None, inputs=None, **kwds):
         """
         Apply a forward pass through the network, given the current weights.
         

@@ -108,7 +108,7 @@ class CGAT(nn.Module):
                                          activation=activation,
                                          allow_zero_in_degree=allow_zero_in_degree))
 
-    def forward(self, g=None, inputs=None, label=None):
+    def forward(self, g=None, inputs=None, label=None, **kwds):
         
         """
         Parameters:
