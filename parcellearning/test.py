@@ -1,5 +1,7 @@
 import argparse, json, os, random, subprocess, sys, time
-from parcellearning.utilities import gnnio, load
+
+from parcellearning.utilities import gnnio
+from parcellearning.utilities.load import load_schema, load_model
 
 from pathlib import Path
 
@@ -14,7 +16,7 @@ from niio import write
 
 def main(args):
 
-    schema = gnnio.load_schema(args.schema_file)
+    schema = load_schema(args.schema_file)
 
     pred_dir = '%s/predictions/' % (schema['data']['out'])
     Path(pred_dir).mkdir(parents=True, exist_ok=True)
@@ -28,13 +30,13 @@ def main(args):
 
     label_table = '%sL.labeltable' % (schema['data']['in'])
 
-    testing = gnnio.loaddata(dType='testing',
+    testing = gnnio.dataset(dType='testing',
                              features=features,
                              data_path=schema['data']['testing'])
 
     # get model file
     model_parameters = '%s%s.earlystop.Loss.pt' % (schema['data']['out'], schema['model'])
-    model = load.load_model(schema, model_parameters)
+    model = load_model(schema, model_parameters)
 
     accuracies = np.zeros((len(testing),))
     F = np.zeros((len(testing),))

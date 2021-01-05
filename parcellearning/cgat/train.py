@@ -1,14 +1,13 @@
-import argparse, copy, json, random, sys, time
-sys.path.append("../utilities/")
-sys.path.append("../functional/")
+import argparse, copy, json, random, time
+
+from parcellearning import cgat
+from parcellearning.utilities import gnnio, early_stop, batch
+from parcellearning.utilities.load import load_schema
 
 from shutil import copyfile
 from pathlib import Path
 
 import numpy as np
-
-from parcellearning.utilities import gnnio, early_stop, batch
-from parcellearning import cgat
 
 import dgl
 from dgl.data import register_data_args
