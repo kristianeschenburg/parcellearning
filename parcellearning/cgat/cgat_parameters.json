@@ -3,10 +3,10 @@
 
   "data": {
     "in": "/projects3/parcellation/",
-    "out": "/projects3/parcellation/models/cgat/ipl/",
-    "training": "/projects3/parcellation/data/regional/ipl/training.bin",
-    "validation": "/projects3/parcellation/data/regional/ipl/validation.bin",
-    "testing": "/projects3/parcellation/data/regional/ipl/testing.bin"
+    "out": "/projects3/parcellation/models/cgat/prefrontal/",
+    "training": "/projects3/parcellation/data/regional/prefrontal/training.bin",
+    "validation": "/projects3/parcellation/data/regional/prefrontal/validation.bin",
+    "testing": "/projects3/parcellation/data/regional/prefrontal/testing.bin"
   },
   
   "features": ["regionalized", 
