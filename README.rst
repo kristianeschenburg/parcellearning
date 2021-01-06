@@ -19,3 +19,6 @@ The package contains the following modules:
 * ``gcn``, ``gat``, ``gauss``, ``cgat``: main modules contained network architecture code for each of the above-mentioned network structures
 * ``functional``: contains modules for various loss functions that can be incorporated into the training
 * ``conv``: contains modules for implementing the Constrained Graph Attention Network layer, and Gaussian Graph Attention Network layer, on top of which are built the actual algorithms
+
+
+Models are initialized and trained using JSON schema files.  For example, if we define a schema file corresponding to a vanilla Graph Attention Network as follows:
