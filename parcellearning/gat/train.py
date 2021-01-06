@@ -1,7 +1,9 @@
-import argparse, copy, json, random, time
+import argparse, json, time
 
 from parcellearning import gat
-from parcellearning.utilities import gnnio, early_stop, batch
+from parcellearning.utilities import gnnio
+from parcellearning.utilities.early_stop import EarlyStopping
+from parcellearning.utilities.batch import partition_graphs
 from parcellearning.utilities.load import load_schema
 
 from shutil import copyfile
@@ -11,12 +13,10 @@ import numpy as np
 
 import dgl
 from dgl.data import register_data_args
+import dgl.function as fn
 
 import torch
 import torch.nn.functional as F
-import dgl.function as fn
-
-from . import gat
 
 
 def main(args):
@@ -73,7 +73,7 @@ def main(args):
 
     # initialize early stopper
     stopped_model_output='%s%s.earlystop.Loss.pt' % (out_dir, schema['model'])
-    stopper = early_stop.EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
+    stopper = EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
 
     progress = {k: [] for k in ['Epoch',
                                 'Duration',
@@ -89,7 +89,7 @@ def main(args):
     for epoch in range(TRAIN_PARAMS['epochs']):
 
         # learn model on training data
-        batches = batch.partition_graphs(training, TRAIN_PARAMS['n_batch'])
+        batches = partition_graphs(training, TRAIN_PARAMS['n_batch'])
 
         model.train()
         t0 = time.time()
@@ -113,7 +113,7 @@ def main(args):
             batch_Y = batch.ndata['label']
 
             # push batch through network
-            batch_logits, batch_lg, batch_lb = model(batch, batch_X, batch_Y)
+            batch_logits = model(batch, batch_X)
             
             # compute batch performance
             # loss
@@ -146,7 +146,7 @@ def main(args):
         model.eval()
         with torch.no_grad():
             # push validation through network
-            val_logits, val_lg, val_lb = model(validation, val_X, val_Y)
+            val_logits = model(validation, val_X)
 
             # compute validation performance
             # loss
@@ -174,6 +174,7 @@ def main(args):
         # update training performance
         progress['Train Loss'].append(train_loss.item())
         progress['Train Acc'].append(train_acc.item())
+        
         # update validation performance
         progress['Val Loss'].append(val_loss.item())
         progress['Val Acc'].append(val_acc.item())

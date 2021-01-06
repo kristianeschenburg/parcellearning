@@ -3,10 +3,10 @@
 
   "data": {
     "in": "/projects3/parcellation/",
-    "out": "/projects3/parcellation/models/cgat/primarysensory/",
-    "training": "/projects3/parcellation/data/regional/primarysensory/training.bin",
-    "validation": "/projects3/parcellation/data/regional/primarysensory/validation.bin",
-    "testing": "/projects3/parcellation/data/regional/primarysensory/testing.bin"
+    "out": "/projects3/parcellation/models/cgat/ipl/",
+    "training": "/projects3/parcellation/data/regional/ipl/training.bin",
+    "validation": "/projects3/parcellation/data/regional/ipl/validation.bin",
+    "testing": "/projects3/parcellation/data/regional/ipl/testing.bin"
   },
   
   "features": ["regionalized", 

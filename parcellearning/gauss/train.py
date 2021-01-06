@@ -1,7 +1,9 @@
 import argparse, copy, json, random, time
 
 from parcellearning import gauss
-from parcellearning.utilities import gnnio, early_stop, batch
+from parcellearning.utilities import gnnio
+from parcellearning.utilities.early_stop import EarlyStopping
+from parcellearning.utilities.batch import partition_graphs
 from parcellearning.utilities.load import load_schema
 
 from shutil import copyfile
@@ -17,7 +19,6 @@ import torch.nn.functional as F
 import dgl.function as fn
 
 def main(args):
-
 
     schema = load_schema(args.schema_file)
     in_dir = schema['data']['in']
@@ -69,7 +70,7 @@ def main(args):
 
     # initialize early stopper
     stopped_model_output='%s%s.earlystop.Loss.pt' % (out_dir, schema['model'])
-    stopper = early_stop.EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
+    stopper = EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
 
     progress = {k: [] for k in ['Epoch',
                                 'Duration',
@@ -85,7 +86,7 @@ def main(args):
     for epoch in range(TRAIN_PARAMS['epochs']):
 
         # learn model on training data
-        batches = batch.partition_graphs(training, TRAIN_PARAMS['n_batch'])
+        batches = partition_graphs(training, TRAIN_PARAMS['n_batch'])
 
         model.train()
         t0 = time.time()
