@@ -2,7 +2,7 @@
 parcellearning
 ==============
 
-Python project for learning cortical maps using graph neural networks.  The module are based on the (Deep Graph Library)[https://www.dgl.ai/].
+Python project for learning cortical maps using graph neural networks.  The modules are based on the (Deep Graph Library)[https://www.dgl.ai/].
 
 * Free software: 3-clause BSD license
 
