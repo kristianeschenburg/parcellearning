@@ -21,7 +21,7 @@ import torch.nn.functional as F
 
 def main(args):
 
-    schema = gnnio.load_schema(args.schema_file)
+    schema = load_schema(args.schema_file)
     in_dir = schema['data']['in']
     out_dir = schema['data']['out']
     Path(out_dir).mkdir(parents=True, exist_ok=True)
@@ -40,7 +40,6 @@ def main(args):
 
     MODEL_PARAMS = schema['model_parameters']
     OPT_PARAMS = schema['optimizer_parameters']
-    LOSS_PARAMS = schema['loss_parameters']
     TRAIN_PARAMS = schema['training_parameters']
     STOP_PARAMS = schema['stopping_parameters']
 
@@ -48,18 +47,21 @@ def main(args):
     # - - - - - - - - - - - - - - - - - - - - #
 
     # load training and validation data
-    training = gnnio.dataset(dType='training', 
-                              features=features, 
-                              data_path=schema['data']['training'])
+    training = gnnio.dataset(dType='training',
+                             features=features,,
+                             dSet=schema['data']['training'],
+                             norm=True,
+                             clean=True)
 
-    validation = gnnio.dataset(dType='validation',
-                                features=features, 
-                                data_path=schema['data']['validation'])
+    validation = gnnio.dataset(dType='validation', 
+                               features=features,
+                               dSet=schema['data']['validation'],
+                               norm=True,
+                               clean=True)
 
     validation = dgl.batch(validation)
     val_X = validation.ndata['features']
     val_Y = validation.ndata['label']
-
 
     ##### MODEL TRAINING #####
     # - - - - - - - - - - - - #
@@ -77,9 +79,9 @@ def main(args):
 
     progress = {k: [] for k in ['Epoch',
                                 'Duration',
-                                'Train Loss'
+                                'Train Loss',
                                 'Train Acc',
-                                'Val Loss'
+                                'Val Loss',
                                 'Val Acc']}
 
     cross_entropy = torch.nn.CrossEntropyLoss()

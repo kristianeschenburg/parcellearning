@@ -3,10 +3,10 @@
 
   "data": {
     "in": "/projects3/parcellation/",
-    "out": "/projects3/parcellation/models/cgat/prefrontal/",
-    "training": "/projects3/parcellation/data/regional/prefrontal/training.bin",
-    "validation": "/projects3/parcellation/data/regional/prefrontal/validation.bin",
-    "testing": "/projects3/parcellation/data/regional/prefrontal/testing.bin"
+    "out": "/projects3/parcellation/models/cgat/layers/6/primarysensory/",
+    "training": "/projects3/parcellation/data/regional/primarysensory/training.bin",
+    "validation": "/projects3/parcellation/data/regional/primarysensory/validation.bin",
+    "testing": "/projects3/parcellation/data/regional/primarysensory/testing.bin"
   },
   
   "features": ["regionalized", 
@@ -19,7 +19,7 @@
       "in_dim": 80,
       "num_classes": 181,
       "num_heads": [8,8],
-      "num_layers": 3,
+      "num_layers": 6,
       "num_hidden": 32,
       "residual": "False",
       "feat_drop": 0.1,

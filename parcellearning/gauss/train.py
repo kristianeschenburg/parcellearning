@@ -47,16 +47,20 @@ def main(args):
 
     # load training and validation data
     training = gnnio.dataset(dType='training',
-                              features=features, 
-                              data_path=schema['data']['training'])
+                             features=features,,
+                             dSet=schema['data']['training'],
+                             norm=True,
+                             clean=True)
 
-    validation = gnnio.dataset(dType='validation',
-                                features=features, 
-                                data_path=schema['data']['validation'])
+    validation = gnnio.dataset(dType='validation', 
+                               features=features,
+                               dSet=schema['data']['validation'],
+                               norm=True,
+                               clean=True)
+
     validation = dgl.batch(validation)
     val_X = validation.ndata['features']
     val_Y = validation.ndata['label']
-
 
     ##### MODEL TRAINING #####
     # - - - - - - - - - - - - #

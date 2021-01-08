@@ -224,9 +224,28 @@ def standardize(dataset):
 
 def dataset(features=None,
             dir='/projects3/parcellation/',
-             dType='training',
-             norm=True,
-            data_path='/projects3/parcellation/data/'):
+            dSet=None,
+            dType='training',
+            norm=True,
+            clean=True):
+
+    """
+    Load datasets that can be plugged in directly to GNN models.
+
+    Parameters:
+    - - - - -
+    features: list
+        list of features to include in the dataset
+    dir: str
+        base path to data
+    dSet: set
+        path to previously computed dataset
+    norm: bool
+        standardize the columnso of the features
+    clean: bool
+        after aggregation of all features into single matrix
+        remove single feature columns
+    """
 
     dName = '%sdata/%s.bin' % (dir, dType)
     subject_list = '%ssubjects/%s.txt' % (dir, dType)
@@ -242,56 +261,50 @@ def dataset(features=None,
                   'curv': {'dir': '%sdata/curvature/' % (dir),
                                 'extension': '.L.curvature.32k_fs_LR.shape.gii'}}
 
-    if features is not None:
-        features.sort()
-        fmap = {k: features_map[k] for k in features}
+    if features is None:
+        features = list(features_map.keys())
+        
+    features.sort()
+    fmap = {k: features_map[k] for k in features}
 
-    # if not specific path provided, load the 
-    # basline full data sets
-    if not data_path:
+    # by default, load the whole dataset
+    # it will be created if it does not exist 
+    if not dSet:
         data_set = GCNData(subject_list=subject_list,
-                        data_name=dName,
-                        features=fmap)
+                           data_name=dName,
+                           features=fmap)
         data_set = data_set.load()
+
     # otherwise, load the specified path
+    # assumes the feature names are the same as those in the full dataset
     else:
-        data_set = dgl.load_graphs(data_path)[0]
+        data_set = dgl.load_graphs(dSet)[0]
 
     # standardize features
     if norm:
-        if not data_path:
-            for graph in data_set:
-
-                indices = graph.ndata['idx'].bool()
-
-                for feature in fmap.keys():
-
-                    temp = graph.ndata[feature]
-
-                    # normalize each feature column
-                    temp = standardize(temp)
-                    # remove NAN columns
-                    nans = (torch.isnan(temp).sum(0) == temp.shape[0])
-                    temp = temp[:,~nans]
-
-                    graph.ndata[feature] = temp
-        else:
-            for graph in data_set:
-                temp = graph.ndata['features']
-                temp = standardize(temp)
-                nans = (torch.isnan(temp).sum(0) == temp.shape[0])
-                temp = temp[:,~nans]
-                graph.ndata['features'] = temp
-            
-
-
-    # subsample the feature matrices to only include out features of interest
-    if not data_path:
         for graph in data_set:
-            temp = torch.cat([graph.ndata[f] for f in features], dim=1)
-            graph.ndata['features'] = temp
-            for feature in features:
-                del graph.ndata[feature]
+
+            indices = graph.ndata['idx'].bool()
+
+            # standardize the specified features
+            for feature in fmap.keys():
+
+                temp = graph.ndata[feature]
+                # normalize each feature column
+                temp = standardize(temp)
+                graph.ndata[feature] = temp
+
+    # aggregate the features of interest
+    for graph in data_set:
+        temp = torch.cat([graph.ndata[f] for f in features], dim=1)
+        graph.ndata['features'] = temp
+
+    # remove all individual features apart from the aggregation
+    if clean:
+        exfeats = [l for l in graph.ndata.keys() if l not in ['features', 'label', 'idx']]
+        for graph in data_set:
+            for exfeat in exfeats:
+                graph.ndata.pop(exfeat)
 
     # exclude self loop connections
     for graph in data_set:

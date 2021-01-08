@@ -3,10 +3,10 @@
 
   "data": {
     "in": "/projects3/parcellation/",
-    "out": "/projects3/parcellation/models/gat/primarysensory/",
-    "training": "/projects3/parcellation/data/regional/primarysensory/training.bin",
-    "validation": "/projects3/parcellation/data/regional/primarysensory/validation.bin",
-    "testing": "/projects3/parcellation/data/regional/primarysensory/testing.bin"
+    "out": "/projects3/parcellation/models/gat/medialtemporal/",
+    "training": "/projects3/parcellation/data/regional/medialtemporal/training.bin",
+    "validation": "/projects3/parcellation/data/regional/medialtemporal/validation.bin",
+    "testing": "/projects3/parcellation/data/regional/medialtemporal/testing.bin"
   },
   
   "features": ["regionalized", 

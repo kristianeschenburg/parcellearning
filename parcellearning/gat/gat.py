@@ -30,6 +30,7 @@ class GAT(nn.Module):
         number of independent heads per layer (multi-head attention mechanisms)
         num_heads[0] = hidden heads
         num_heads[1] = output heads
+    activation: 
     feat_drop: float
         layer-wise dropout rate [0,1]
     attn_drop: float
@@ -49,7 +50,8 @@ class GAT(nn.Module):
                  feat_drop,
                  attn_drop,
                  negative_slope=0.2,
-                 residual=False):
+                 residual=False,
+                 allow_zero_in_degree=True):
         
         super(GAT, self).__init__()
         self.num_layers = num_layers
@@ -61,19 +63,19 @@ class GAT(nn.Module):
         # input projection (no residual)
         self.gat_layers.append(GATConv(
             in_dim, num_hidden, self.num_heads,
-            feat_drop, attn_drop, negative_slope, False, self.activation))
+            feat_drop, attn_drop, negative_slope, False, self.activation, allow_zero_in_degree))
         
         # hidden layers
         for l in range(1, num_layers):
             # due to multi-head, the in_dim = num_hidden * num_heads
             self.gat_layers.append(GATConv(
                 num_hidden * self.num_heads, num_hidden, self.num_heads,
-                feat_drop, attn_drop, negative_slope, residual, self.activation))
+                feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree))
             
         # output projection
         self.gat_layers.append(GATConv(
             num_hidden * self.num_heads, num_classes, self.num_out_heads,
-            feat_drop, attn_drop, negative_slope, residual, None))
+            feat_drop, attn_drop, negative_slope, residual, None, allow_zero_in_degree))
 
     def forward(self, g=None, inputs=None, **kwds):
         
