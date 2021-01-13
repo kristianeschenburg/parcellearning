@@ -4,7 +4,7 @@ import dgl
 from dgl import data
 from dgl.data import DGLDataset
 import dgl.function as fn
-from dgl.nn.pytorch import edge_softmax, GATConv
+from dgl.nn.pytorch import GATConv
 
 import torch
 import torch.nn as nn
