@@ -227,6 +227,7 @@ def dataset(features=None,
             dSet=None,
             dType='training',
             norm=True,
+            aggregate=False,
             clean=True):
 
     """
@@ -284,8 +285,6 @@ def dataset(features=None,
     if norm:
         for graph in data_set:
 
-            indices = graph.ndata['idx'].bool()
-
             # standardize the specified features
             for feature in fmap.keys():
 
@@ -295,9 +294,10 @@ def dataset(features=None,
                 graph.ndata[feature] = temp
 
     # aggregate the features of interest
-    for graph in data_set:
-        temp = torch.cat([graph.ndata[f] for f in features], dim=1)
-        graph.ndata['features'] = temp
+    if aggregate:
+        for graph in data_set:
+            temp = torch.cat([graph.ndata[f] for f in features], dim=1)
+            graph.ndata['features'] = temp
 
     # remove all individual features apart from the aggregation
     if clean:
@@ -306,8 +306,9 @@ def dataset(features=None,
             for exfeat in exfeats:
                 graph.ndata.pop(exfeat)
 
-    # exclude self loop connections
+    # add self loop connections
     for graph in data_set:
-            graph = dgl.remove_self_loop(graph)
+        graph = dgl.remove_self_loop(graph)
+        graph = dgl.add_self_loop(graph)
 
     return data_set

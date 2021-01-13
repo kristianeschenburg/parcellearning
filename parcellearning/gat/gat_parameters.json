@@ -42,6 +42,6 @@
 
   "stopping_parameters": {
     "mode": "lower",
-    "patience": 20
+    "patience": 50
   }
 }

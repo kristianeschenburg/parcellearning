@@ -1,4 +1,4 @@
-import argparse, json, time
+import argparse, json, os, time
 
 from parcellearning import cgat
 from parcellearning.utilities import gnnio
@@ -28,7 +28,8 @@ def main(args):
 
     # copy schema file to output directory
     copy_schema = ''.join([out_dir, args.schema_file.split('/')[-1]])
-    copyfile(args.schema_file, copy_schema)
+    if not os.path.exists(copy_schema):
+        copyfile(args.schema_file, copy_schema)
 
     # get features
     features = schema['features']
@@ -49,15 +50,17 @@ def main(args):
 
     # load training and validation data
     training = gnnio.dataset(dType='training',
-                             features=features,,
+                             features=features,
                              dSet=schema['data']['training'],
                              norm=True,
+                             aggregate=True,
                              clean=True)
 
     validation = gnnio.dataset(dType='validation', 
                                features=features,
                                dSet=schema['data']['validation'],
                                norm=True,
+                               aggregate=True,
                                clean=True)
 
     validation = dgl.batch(validation)
