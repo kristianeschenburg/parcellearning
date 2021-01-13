@@ -78,9 +78,17 @@ class JKGAT(nn.Module):
                 feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree))
             
         # output projection
+        # output layer using concatenation of layer embeddings
+        if self.aggregation == 'concat':
+            last_input = num_layers * num_hidden * self.num_heads
+        # output layer using maxpooling of layer embeddings
+        elif self.aggregation == 'pool':
+            last_input = num_hidden * self.num_heads
+        
         self.gat_layers.append(GATConv(
-            num_hidden * self.num_heads, num_classes, self.num_out_heads,
+            last_input, num_classes, self.num_out_heads,
             feat_drop, attn_drop, negative_slope, residual, None, allow_zero_in_degree))
+
 
     def forward(self, g=None, inputs=None, **kwds):
         
@@ -90,7 +98,7 @@ class JKGAT(nn.Module):
 
         Max-pooling learns a unique aggreation for each node, while concatenation learns
         a unique aggregation for the entire graph.
-        
+
         Parameters:
         - - - - -
         g: DGL Graph
@@ -110,14 +118,16 @@ class JKGAT(nn.Module):
             h = self.gat_layers[l](g, h).flatten(1)
             embeddings.append(h)
         
+        # jumping knowledge using concatenation
         if self.aggregation == 'concat':
             embeddings = torch.cat(layer_outputs, dim=1)
+        # jumping knowledge using maxpooling
         elif self.aggregation == 'pool':
             embeddings = torch.stack(embeddings, dim=0)
             embeddings = torch.max(embeddings, dim=0)[0]
 
         # output projection
-        logits = self.gat_layers[-1](g,h).mean(1)
+        logits = self.gat_layers[-1](g, embeddings).mean(1)
         
         return logits
 
