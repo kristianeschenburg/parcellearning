@@ -9,7 +9,7 @@ from dgl.nn.pytorch import GATConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Linear, LSTM
+from torch.nn import Linear
 
 
 class JKGAT(nn.Module):
@@ -86,18 +86,31 @@ class JKGAT(nn.Module):
         # output layer w/ maxpooling of layer embeddings
         elif self.aggregation == 'pool':
             last_input = num_hidden * self.num_heads
-        # output layer w/ LSTM of layer embeddings
+            
+        self.fc_proj = torch.nn.Linear(last_input, num_classes, bias=False)
+        # initialize linear projection layer weights
+        self.reset_parameters()
+
+        self.jkgat_layers.append(self.fc_proj)
         
-        self.jkgat_layers.append(GATConv(last_input, 
-                                         num_classes, 
-                                         self.num_out_heads, 
-                                         feat_drop, 
-                                         attn_drop, 
-                                         negative_slope, 
-                                         residual,
-                                         None, 
-                                         allow_zero_in_degree))
-        
+    def reset_parameters(self):
+        """
+
+        Description
+        -----------
+        Reinitialize learnable parameters.
+
+        Note
+        ----
+        The fc weights :math:`W^{(l)}` are initialized using Glorot uniform initialization.
+        The attention weights are using xavier initialization method.
+        """
+
+        gain = nn.init.calculate_gain('relu')
+        # initialize fully connected weights 
+        if hasattr(self, 'fc_proj'):
+            nn.init.xavier_normal_(self.fc_proj.weight, gain=gain)
+
     def forward(self, g=None, inputs=None, **kwds):
         
         """
@@ -136,8 +149,7 @@ class JKGAT(nn.Module):
             embeddings = torch.max(embeddings, dim=0)[0]
 
         # output projection
-        logits = self.jkgat_layers[-1](g, embeddings)
-        logits = logits.mean(1)
+        logits = self.jkgat_layers[-1](embeddings)
         
         return logits
 
