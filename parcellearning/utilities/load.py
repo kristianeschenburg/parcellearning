@@ -1,4 +1,4 @@
-from parcellearning import cgat, gat, gauss, gcn
+from parcellearning import cgat, gat, gauss, gcn, jkgat
 
 import argparse
 import json
@@ -27,7 +27,8 @@ def load_model(schema, model_file):
     model_function = {'CGAT': cgat.CGAT,
                       'GAT': gat.GAT,
                       'GAUSS': gauss.GAUSS,
-                      'GCN': gcn.GCN}
+                      'GCN': gcn.GCN,
+                      'JKGAT': jkgat.JKGAT}
 
     model = model_function[schema['model']](**schema['model_parameters'])
 
