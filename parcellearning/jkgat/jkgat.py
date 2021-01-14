@@ -149,7 +149,8 @@ class JKGAT(nn.Module):
             embeddings = torch.max(embeddings, dim=0)[0]
 
         # output projection
-        logits = self.jkgat_layers[-1](embeddings)
+        h = self.jkgat_layers[-1](embeddings)
+        logits = torch.sigmoid(h)
         
         return logits
 
