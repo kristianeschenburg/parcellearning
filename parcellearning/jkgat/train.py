@@ -71,7 +71,7 @@ def main(args):
     # - - - - - - - - - - - - #
 
     # instantiate model using schema parameters
-    model = gat.GAT(**MODEL_PARAMS)
+    model = jkgat.JKGAT(**MODEL_PARAMS)
 
     # instantiate Adam optimizer using scheme parameters
     optimizer = torch.optim.Adam(model.parameters(), **OPT_PARAMS)

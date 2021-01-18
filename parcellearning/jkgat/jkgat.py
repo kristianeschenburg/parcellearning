@@ -1,10 +1,10 @@
+from parcellearning.conv.gatconv import GATConv
 import numpy as np
 
 import dgl
 from dgl import data
 from dgl.data import DGLDataset
 import dgl.function as fn
-from dgl.nn.pytorch import GATConv
 
 import torch
 import torch.nn as nn
@@ -43,6 +43,8 @@ class JKGAT(nn.Module):
     aggregation: str
         aggregation strategy for jumping knowledge learning
         options: ['pool', 'concat']
+    learn_structure: bool
+        learn network structure of jumping-knowledge layer
     """
     def __init__(self,
                  num_layers,
@@ -56,7 +58,8 @@ class JKGAT(nn.Module):
                  negative_slope=0.2,
                  residual=False,
                  allow_zero_in_degree=True,
-                 aggregation='concat'):
+                 aggregation='concat',
+                 return_attention=False):
         
         super(JKGAT, self).__init__()
         self.num_layers = num_layers
@@ -65,34 +68,36 @@ class JKGAT(nn.Module):
         self.jkgat_layers = nn.ModuleList()
         self.activation = activation
         self.aggregation = aggregation
+        self.return_attention = return_attention
         
         # input projection (no residual)
         self.jkgat_layers.append(GATConv(
             in_dim, num_hidden, self.num_heads,
-            feat_drop, attn_drop, negative_slope, False, self.activation, allow_zero_in_degree))
+            feat_drop, attn_drop, negative_slope, False, self.activation, allow_zero_in_degree, return_attention))
         
         # hidden layers
         for l in range(1, num_layers):
             # due to multi-head, the in_dim = num_hidden * num_heads
             self.jkgat_layers.append(GATConv(
                 num_hidden * self.num_heads, num_hidden, self.num_heads,
-                feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree))
+                feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree, return_attention))
             
         # Jumping Knowledge Layer
-        # output layer w/ concatenation of layer embeddings
+        # output layer w/ concatenation of layer embeddingsgit 
         if self.aggregation == 'concat':
             last_input = num_layers * num_hidden * self.num_heads
             
         # output layer w/ maxpooling of layer embeddings
         elif self.aggregation == 'pool':
             last_input = num_hidden * self.num_heads
-            
+
+        # linear layer between jk layer and output
         self.fc_proj = torch.nn.Linear(last_input, num_classes, bias=False)
-        # initialize linear projection layer weights
+        self.jkgat_layers.append(self.fc_proj)
+
+        # initialize model weights
         self.reset_parameters()
 
-        self.jkgat_layers.append(self.fc_proj)
-        
     def reset_parameters(self):
         """
 
@@ -135,10 +140,18 @@ class JKGAT(nn.Module):
 
         h = inputs
         embeddings = []
+        A = []
         for l in range(self.num_layers):
-            h = self.jkgat_layers[l](g, h).flatten(1)
-            embeddings.append(h)
-        
+
+            if self.return_attention:
+                h,attn = self.jkgat_layers[l](g, h)
+                A.append(attn)
+            else:
+                h = self.jkgat_layers[l](g,h)
+            
+            h = h.flatten(1)
+            embeddings.append(h.flatten(1))
+
         # jumping knowledge using concatenation
         if self.aggregation == 'concat':
             embeddings = torch.cat(embeddings, dim=1)
@@ -152,7 +165,10 @@ class JKGAT(nn.Module):
         h = self.jkgat_layers[-1](embeddings)
         logits = torch.sigmoid(h)
         
-        return logits
+        if self.return_attention:
+            return logits, A
+        else:
+            return logits, 
 
     def save(self, filename):
 
