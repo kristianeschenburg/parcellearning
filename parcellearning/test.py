@@ -24,26 +24,29 @@ def main(args):
     features = schema['features']
     features.sort()
 
-    testing_subjects = '%ssubjects/testing.txt' % (schema['data']['in'])
-    with open(testing_subjects, 'r') as f:
+    assess_subjects = '%ssubjects/%s.txt' % (schema['data']['in'], args.data)
+    with open(assess_subjects, 'r') as f:
         subjects = f.read().split()
 
     label_table = '%sL.labeltable' % (schema['data']['in'])
 
-    testing = gnnio.dataset(dType='testing',
-                             features=features,
-                             data_path=schema['data']['testing'])
+    graphs = gnnio.dataset(dType=args.data,
+                           features=features,
+                           dSet=schema['data'][args.data],
+                           norm=True,
+                           aggregate=True,
+                           clean=True)
 
     # get model file
     model_parameters = '%s%s.earlystop.Loss.pt' % (schema['data']['out'], schema['model'])
     model = load_model(schema, model_parameters)
 
-    accuracies = np.zeros((len(testing),))
-    F = np.zeros((len(testing),))
+    accuracies = np.zeros((len(graphs),))
+    F = np.zeros((len(graphs),))
 
-    predictions = np.zeros((32492, len(testing)))
+    predictions = np.zeros((32492, len(graphs)))
 
-    for i, graph in enumerate(testing):
+    for i, graph in enumerate(graphs):
         model.eval()
 
         with torch.no_grad():
@@ -92,13 +95,13 @@ def main(args):
             # store predicted maps
             predictions[graph.ndata['idx'], i] = indices
 
-    print('Mean test accuracy: %.3f' % accuracies.mean())
+    print('Mean accuracy: %.3f' % accuracies.mean())
 
     # save all predicted maps into single file
-    out_func_file = '%s%s.predictions.func.gii' % (pred_dir, schema['model'])
+    out_func_file = '%s%s.predictions.%s.func.gii' % (pred_dir, schema['model'], args.data)
     write.save(predictions, out_func_file, 'L')
 
-    out_label_file = '%s%s.predictions.label.gii' % (pred_dir, schema['model'])
+    out_label_file = '%s%s.predictions.%s.label.gii' % (pred_dir, schema['model'], args.data)
     bashCommand = "wb_command -metric-label-import  %s %s %s" % (
                     out_func_file, label_table, out_label_file)
     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -113,10 +116,10 @@ def main(args):
     consensus = u[np.argmax(np.apply_along_axis(np.bincount, axis, idx.reshape(predictions.shape),
                                                 None, np.max(idx) + 1), axis=axis)]
     
-    out_func_file = '%s%s.predictions.consensus.func.gii' % (pred_dir, schema['model'])
+    out_func_file = '%s%s.predictions.consensus.%s.func.gii' % (pred_dir, schema['model'], args.data)
     write.save(consensus, out_func_file, 'L')
 
-    out_label_file = '%s%s.predictions.consensus.label.gii' % (pred_dir, schema['model'])
+    out_label_file = '%s%s.predictions.consensus.%s.label.gii' % (pred_dir, schema['model'], args.data)
     bashCommand = "wb_command -metric-label-import  %s %s %s" % (
                     out_func_file, label_table, out_label_file)
     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -127,7 +130,7 @@ def main(args):
 
     # plot test performance metrics
     df = pd.DataFrame(np.column_stack([accuracies, F, subjects]), columns=['acc', 'f1', 'subject'])
-    df_file = '%s%s.metrics.csv' % (pred_dir, schema['model'])
+    df_file = '%s%s.metrics.%s.csv' % (pred_dir, schema['model'], args.data)
     df.to_csv(df_file)
 
     fig, [ax1, ax2] = plt.subplots(1,2, figsize=(12,5))
@@ -138,7 +141,7 @@ def main(args):
     ax1.set_xlabel('Accuracy', fontsize=15)
     ax1.set_ylabel('Density', fontsize=15)
     ax1.set_xlim([0,1])
-    ax1.set_title('Model Test Performance: Accuracy', fontsize=20)
+    ax1.set_title('Model %s Performance: Accuracy' % (args.data.capitalize()), fontsize=20)
 
     # test F1 distribution
     ax2.hist(F, density=True)
@@ -146,10 +149,10 @@ def main(args):
     ax2.set_xlabel('F1-Score', fontsize=15)
     ax2.set_ylabel('Density', fontsize=15)
     ax2.set_xlim([0,1])
-    ax2.set_title('Model Test Performance: Dice', fontsize=20)
+    ax2.set_title('Model %s Performance: Dice' % (args.data.capitalize()), fontsize=20)
 
     plt.tight_layout()
-    fig_file = '%s%s.accuracies.png' % (pred_dir, schema['model'])
+    fig_file = '%s%s.accuracies.%s.png' % (pred_dir, schema['model'], args.data)
     plt.savefig(fig_file, bbox_inches='tight', transparent=True)
 
 
@@ -159,6 +162,12 @@ if __name__ == '__main__':
     parser.add_argument('--schema-file', 
                         type=str,
                         help='JSON file with parameters for model, training, and output.')
+    parser.add_argument('--data', 
+                        type=str, 
+                        help='Assess model performance on test or validation set.',
+                        default='testing', 
+                        choices=['testing', 'validation'],
+                        required=False)
 
     args = parser.parse_args()
 
