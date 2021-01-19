@@ -1,17 +1,3 @@
-from parcellearning.conv.gatconv import GATConv
-import numpy as np
-
-import dgl
-from dgl import data
-from dgl.data import DGLDataset
-import dgl.function as fn
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn import Linear
-
-
 class JKGAT(nn.Module):
     
     """
@@ -83,11 +69,7 @@ class JKGAT(nn.Module):
                 feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree, return_attention))
             
         # Jumping Knowledge Layer
-        if aggregation == 'concat':
-            self.fc_proj = torch.nn.Linear(num_hidden*self.num_heads, num_classes, bias=True)
-        elif aggregation == 'pool':
-            self.fc_proj = torch.nn.Linear(num_hidden, num_classes, bias=True)
-
+        self.fc_proj = torch.nn.Linear(num_hidden, num_classes, bias=False)
         self.jkgat_layers.append(self.fc_proj)
 
         # initialize model weights
@@ -109,7 +91,7 @@ class JKGAT(nn.Module):
         gain = nn.init.calculate_gain('relu')
         # initialize fully connected weights 
         if hasattr(self, 'fc_proj'):
-            nn.init.uniform_(self.fc_proj.weight)
+            nn.init.xavier_normal_(self.fc_proj.weight, gain=gain)
 
     def forward(self, g=None, inputs=None, **kwds):
         
@@ -143,8 +125,8 @@ class JKGAT(nn.Module):
                 A.append(attn)
             else:
                 h = self.jkgat_layers[l](g,h)
-            
-            embeddings.append(h.sum(1))
+
+            embeddings.append(torch.sum(h, dim=1))
             h = h.flatten(1)
 
         # jumping knowledge using concatenation
@@ -163,7 +145,7 @@ class JKGAT(nn.Module):
         if self.return_attention:
             return logits, A
         else:
-            return logits, 
+            return logits
 
     def save(self, filename):
 
