@@ -41,6 +41,7 @@ def main(args):
 
     MODEL_PARAMS = schema['model_parameters']
     OPT_PARAMS = schema['optimizer_parameters']
+    OPT_PARAMS['weight_decay'] = 0.05
     TRAIN_PARAMS = schema['training_parameters']
     STOP_PARAMS = schema['stopping_parameters']
 
