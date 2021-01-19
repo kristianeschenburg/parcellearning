@@ -105,7 +105,7 @@ class JKGAT(nn.Module):
         gain = nn.init.calculate_gain('relu')
         # initialize fully connected weights 
         if hasattr(self, 'fc_proj'):
-            nn.init.uniform_(self.fc_proj.weight, gain=gain)
+            nn.init.uniform_(self.fc_proj.weight)
 
     def forward(self, g=None, inputs=None, **kwds):
         
