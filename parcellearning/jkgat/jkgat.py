@@ -83,16 +83,7 @@ class JKGAT(nn.Module):
                 feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree, return_attention))
             
         # Jumping Knowledge Layer
-        # output layer w/ concatenation of layer embeddingsgit 
-        if self.aggregation == 'concat':
-            last_input = num_layers * num_hidden * self.num_heads
-            
-        # output layer w/ maxpooling of layer embeddings
-        elif self.aggregation == 'pool':
-            last_input = num_hidden * self.num_heads
-
-        # linear layer between jk layer and output
-        self.fc_proj = torch.nn.Linear(last_input, num_classes, bias=False)
+        self.fc_proj = torch.nn.Linear(num_hidden*self.num_heads, num_classes, bias=False)
         self.jkgat_layers.append(self.fc_proj)
 
         # initialize model weights
@@ -114,7 +105,7 @@ class JKGAT(nn.Module):
         gain = nn.init.calculate_gain('relu')
         # initialize fully connected weights 
         if hasattr(self, 'fc_proj'):
-            nn.init.xavier_normal_(self.fc_proj.weight, gain=gain)
+            nn.init.uniform_(self.fc_proj.weight, gain=gain)
 
     def forward(self, g=None, inputs=None, **kwds):
         
@@ -149,8 +140,8 @@ class JKGAT(nn.Module):
             else:
                 h = self.jkgat_layers[l](g,h)
             
+            embeddings.append(h.sum(1))
             h = h.flatten(1)
-            embeddings.append(h.flatten(1))
 
         # jumping knowledge using concatenation
         if self.aggregation == 'concat':
