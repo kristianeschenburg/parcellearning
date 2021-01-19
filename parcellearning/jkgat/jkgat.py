@@ -83,7 +83,11 @@ class JKGAT(nn.Module):
                 feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree, return_attention))
             
         # Jumping Knowledge Layer
-        self.fc_proj = torch.nn.Linear(num_hidden*self.num_heads, num_classes, bias=False)
+        if aggregation == 'concat':
+            self.fc_proj = torch.nn.Linear(num_hidden*self.num_heads, num_classes, bias=True)
+        elif aggregation == 'pool':
+            self.fc_proj = torch.nn.Linear(num_hidden, num_classes, bias=True)
+
         self.jkgat_layers.append(self.fc_proj)
 
         # initialize model weights
