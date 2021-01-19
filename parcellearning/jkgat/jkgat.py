@@ -59,8 +59,7 @@ class JKGAT(nn.Module):
                  negative_slope=0.2,
                  residual=False,
                  allow_zero_in_degree=True,
-                 aggregation='concat',
-                 return_attention=False):
+                 aggregation='concat'):
         
         super(JKGAT, self).__init__()
         self.num_layers = num_layers
@@ -69,7 +68,6 @@ class JKGAT(nn.Module):
         self.jkgat_layers = nn.ModuleList()
         self.activation = activation
         self.aggregation = aggregation
-        self.return_attention = return_attention
         
         # input projection (no residual)
         self.jkgat_layers.append(GATConv(
@@ -84,7 +82,10 @@ class JKGAT(nn.Module):
                 feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree, return_attention))
             
         # Jumping Knowledge Layer
-        self.fc_proj = torch.nn.Linear(num_hidden, num_classes, bias=False)
+        if aggregation == 'concat':
+            self.fc_proj = torch.nn.Linear(num_hidden*num_layers, num_classes, bias=True)
+        elif aggregation == 'pool':
+            self.fc_proj = torch.nn.Linear(num_hidden, num_classes, bias=True)
         self.jkgat_layers.append(self.fc_proj)
 
         # initialize model weights
@@ -132,15 +133,10 @@ class JKGAT(nn.Module):
 
         h = inputs
         embeddings = []
-        A = []
         for l in range(self.num_layers):
 
-            if self.return_attention:
-                h,attn = self.jkgat_layers[l](g, h)
-                A.append(attn)
-            else:
-                h = self.jkgat_layers[l](g,h)
-
+            h = self.jkgat_layers[l](g,h)
+            
             embeddings.append(torch.sum(h, dim=1))
             h = h.flatten(1)
 
@@ -157,10 +153,7 @@ class JKGAT(nn.Module):
         h = self.jkgat_layers[-1](embeddings)
         logits = torch.sigmoid(h)
         
-        if self.return_attention:
-            return logits, A
-        else:
-            return logits
+        return logits
 
     def save(self, filename):
 
