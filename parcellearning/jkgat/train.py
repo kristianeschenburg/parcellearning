@@ -81,7 +81,6 @@ def main(args):
     stopper = EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
 
     progress = {k: [] for k in ['Epoch',
-                                'Duration',
                                 'Train Loss',
                                 'Train Acc',
                                 'Val Loss',
@@ -97,7 +96,6 @@ def main(args):
         batches = partition_graphs(training, TRAIN_PARAMS['n_batch'])
 
         model.train()
-        t0 = time.time()
 
         # zero the gradients for this epoch
         optimizer.zero_grad()
@@ -105,8 +103,6 @@ def main(args):
         # aggregate training batch losses
         train_loss = 0
         train_le = 0
-        train_lg = 0
-        train_lb = 0
 
         # aggregate training batch accuracies
         train_acc = 0
@@ -129,27 +125,22 @@ def main(args):
             batch_acc = (batch_indices == batch_Y).sum() / batch_Y.shape[0]
 
             # apply backward parameter update pass
+            optimizer.zero_grad()
             batch_loss.backward()
-
-            # update training performance
-            train_loss += batch_loss
-            train_acc += batch_acc
+            optimizer.step()
 
             if TRAIN_PARAMS['verbose']:
                 print("Batch Loss {:.4f} | Batch Acc {:.4f}".format(
                 batch_loss.item(), batch_acc))
-
-            # accumulate the gradients from each batch
-            if (iteration+1) % TRAIN_PARAMS['n_batch'] == 0:
-                optimizer.step()
-                optimizer.zero_grad()
-
-        dur.append(time.time() - t0)
-
-        # switch model into evaluation mode 
-        # so we don't update the gradients using the validation data
+            
         model.eval()
         with torch.no_grad():
+
+            train_logits = model(training, training.ndata['features'])
+            train_loss = cross_entropy(train_logits, training.ndata['label'])
+            _, train_indices = torch.max(F.softmax(train_logits, dim=1), dim=1)
+            train_acc = (train_indices == training.ndata['label']).sum() / training.ndata['label'].shape[0]
+
             # push validation through network
             val_logits = model(validation, val_X)
 
@@ -161,28 +152,21 @@ def main(args):
             _, val_indices = torch.max(F.softmax(val_logits, dim=1), dim=1)
             val_acc = (val_indices == val_Y).sum() / val_Y.shape[0]
 
-        train_loss /= TRAIN_PARAMS['n_batch']
-        train_acc /= TRAIN_PARAMS['n_batch']
+            # Show current performance
+            print("Epoch {:05d} | Time(s) {:.4f} | Train Loss {:.4f} | Train Acc {:.4f} | Val Loss {:.4f} | Val Acc {:.4f}".format(
+                epoch, np.mean(dur),
+                train_loss.item(), train_acc.item(),
+                val_loss.item(), val_acc.item()))
 
-        # Show current performance
-        print("Epoch {:05d} | Time(s) {:.4f} | Train Loss {:.4f} | Train Acc {:.4f} | Val Loss {:.4f} | Val Acc {:.4f}".format(
-            epoch, np.mean(dur),
-            train_loss.item(), train_acc.item(),
-            val_loss.item(), val_acc.item()))
+            progress['Epoch'].append(epoch)
 
-        progress['Epoch'].append(epoch)
-        if epoch > 3:
-            progress['Duration'].append(time.time() - t0)
-        else:
-            progress['Duration'].append(0)
-
-        # update training performance
-        progress['Train Loss'].append(train_loss.item())
-        progress['Train Acc'].append(train_acc.item())
-        
-        # update validation performance
-        progress['Val Loss'].append(val_loss.item())
-        progress['Val Acc'].append(val_acc.item())
+            # update training performance
+            progress['Train Loss'].append(train_loss.item())
+            progress['Train Acc'].append(train_acc.item())
+            
+            # update validation performance
+            progress['Val Loss'].append(val_loss.item())
+            progress['Val Acc'].append(val_acc.item())
 
 
         # set up early stopping criteria on validation loss 
