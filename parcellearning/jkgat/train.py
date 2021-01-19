@@ -136,10 +136,12 @@ def main(args):
         model.eval()
         with torch.no_grad():
 
-            train_logits = model(training, training.ndata['features'])
-            train_loss = cross_entropy(train_logits, training.ndata['label'])
+            G = dgl.batch(training)
+
+            train_logits = model(G, G.ndata['features'])
+            train_loss = cross_entropy(train_logits, G.ndata['label'])
             _, train_indices = torch.max(F.softmax(train_logits, dim=1), dim=1)
-            train_acc = (train_indices == training.ndata['label']).sum() / training.ndata['label'].shape[0]
+            train_acc = (train_indices == G.ndata['label']).sum() / G.ndata['label'].shape[0]
 
             # push validation through network
             val_logits = model(validation, val_X)
