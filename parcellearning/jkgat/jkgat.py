@@ -72,14 +72,14 @@ class JKGAT(nn.Module):
         # input projection (no residual)
         self.jkgat_layers.append(GATConv(
             in_dim, num_hidden, self.num_heads,
-            feat_drop, attn_drop, negative_slope, False, self.activation, allow_zero_in_degree, return_attention))
+            feat_drop, attn_drop, negative_slope, False, self.activation, allow_zero_in_degree))
         
         # hidden layers
         for l in range(1, num_layers):
             # due to multi-head, the in_dim = num_hidden * num_heads
             self.jkgat_layers.append(GATConv(
                 num_hidden * self.num_heads, num_hidden, self.num_heads,
-                feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree, return_attention))
+                feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree))
             
         # Jumping Knowledge Layer
         if aggregation == 'concat':
