@@ -9,7 +9,7 @@ import dgl.function as fn
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Linear
+from torch.nn import Linear, LSTM
 from dgl.nn.pytorch import GraphConv
 
 
@@ -43,9 +43,7 @@ class JKGAT(nn.Module):
         use residual connection
     aggregation: str
         aggregation strategy for jumping knowledge learning
-        options: ['pool', 'concat']
-    learn_structure: bool
-        learn network structure of jumping-knowledge layer
+        options: ['lstm', 'concat']
     """
     def __init__(self,
                  num_layers,
@@ -59,34 +57,52 @@ class JKGAT(nn.Module):
                  negative_slope=0.2,
                  residual=False,
                  allow_zero_in_degree=True,
-                 aggregation='concat'):
+                 aggregation='cat'):
         
         super(JKGAT, self).__init__()
+        
+        assert aggregation in ['cat', 'lstm'], 'Aggregation must be ```cat``` or ```lstm```'
+        
         self.num_layers = num_layers
         self.num_heads = num_heads[0]
         self.num_out_heads = num_heads[-1]
-        self.jkgat_layers = nn.ModuleList()
+        self.layers = nn.ModuleList()
         self.activation = activation
         self.aggregation = aggregation
         
         # input projection (no residual)
-        self.jkgat_layers.append(GATConv(
+        self.layers.append(GATConv(
             in_dim, num_hidden, self.num_heads,
             feat_drop, attn_drop, negative_slope, False, self.activation, allow_zero_in_degree))
         
         # hidden layers
         for l in range(1, num_layers):
             # due to multi-head, the in_dim = num_hidden * num_heads
-            self.jkgat_layers.append(GATConv(
+            self.layers.append(GATConv(
                 num_hidden * self.num_heads, num_hidden, self.num_heads,
                 feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree))
             
         # Jumping Knowledge Layer
-        if aggregation == 'concat':
-            self.fc_proj = torch.nn.Linear(num_hidden*num_layers, num_classes, bias=True)
-        elif aggregation == 'pool':
-            self.fc_proj = torch.nn.Linear(num_hidden, num_classes, bias=True)
-        self.jkgat_layers.append(self.fc_proj)
+        if aggregation == 'cat':
+            self.linear = Linear(self.num_heads * num_hidden * num_layers, num_classes, bias=False)
+            self.layers.append(self.linear)
+
+        elif aggregation == 'lstm':
+            # bidirectional LSTM concats the forward and backward embeddings
+            # so final output will be of size 2 * `hidden_size`
+            lstm_layers = 2
+            self.lstm = LSTM(input_size=num_hidden * self.num_heads, 
+                             hidden_size=num_hidden, 
+                             num_layers = lstm_layers,
+                             batch_first=True, 
+                             bidirectional=True)
+
+            self.attn = Linear(2*num_hidden, 1)
+            self.linear = Linear(num_hidden*self.num_heads, num_classes, bias=False)
+
+            self.layers.append(self.lstm)
+            self.layers.append(self.attn)
+            self.layers.append(self.linear)   
 
         # initialize model weights
         self.reset_parameters()
@@ -105,18 +121,18 @@ class JKGAT(nn.Module):
         """
 
         gain = nn.init.calculate_gain('relu')
-        # initialize fully connected weights 
-        if hasattr(self, 'fc_proj'):
-            nn.init.xavier_normal_(self.fc_proj.weight, gain=gain)
 
-    def forward(self, g=None, inputs=None, **kwds):
+        if hasattr(self, 'lstm'):
+            self.lstm.reset_parameters()
+        if hasattr(self, 'att'):
+            self.att.reset_parameters()
+        if hasattr(self, 'linear'):
+            self.linear.reset_parameters()
+
+    def forward(self, g=None, inputs=None, return_alpha=False, **kwds):
         
         """
-        Forward pass of network.  We perform jumping knowledge learning by aggregating over
-        the embeddings of each layer.  Options include max-pooling and concatenation.
-
-        Max-pooling learns a unique aggreation for each node, while concatenation learns
-        a unique aggregation for the entire graph.
+        Forward pass of network.  
 
         Parameters:
         - - - - -
@@ -124,6 +140,9 @@ class JKGAT(nn.Module):
             the graph
         inputs: tensor
             node features
+        return_alpha: bool
+            only applies if aggregation == 'lstm'
+            returns learned attentions for each node
             
         Returns:
         - - - - -
@@ -132,33 +151,50 @@ class JKGAT(nn.Module):
         """
 
         h = inputs
-        embeddings = []
+        xs = []
         for l in range(self.num_layers):
 
-            h = self.jkgat_layers[l](g,h)
-            
-            embeddings.append(torch.sum(h, dim=1))
-            h = h.flatten(1)
+            h = self.layers[l](g,h).flatten(1)
+            xs.append(h.unsqueeze(-1))
 
-        # jumping knowledge using concatenation
-        if self.aggregation == 'concat':
-            embeddings = torch.cat(embeddings, dim=1)
-            
-        # jumping knowledge using maxpooling
-        elif self.aggregation == 'pool':
-            embeddings = torch.stack(embeddings, dim=0)
-            embeddings = torch.max(embeddings, dim=0)[0]
+        # LSTM aggregator
+        if self.aggregation == 'lstm':
 
-        # output projection followed by activation
-        h = self.jkgat_layers[-1](embeddings)
-        logits = torch.sigmoid(h)
+            # input to lstm
+            # xs shape will be shape (nodes x seq_length x features)
+            xs = torch.cat(xs, dim=-1).transpose(1,2)
+
+            # compute attentions
+            alpha,_ = self.lstm(xs)
+            alpha = self.attn(alpha).squeeze(-1)
+            alpha = torch.softmax(alpha, dim=-1)
+
+            # compute final embeddings
+            h = (xs * alpha.unsqueeze(-1)).sum(1)
+            h = self.linear(h)
+
+        # CONCAT aggregator
+        else:
+            h = torch.cat(xs, dim=1).squeeze()
+            h = self.linear(h)
+
+        # apply sigmoid activation to jumping-knowledge output
+        # logits = torch.sigmoid(h)
         
-        return logits
+        if return_alpha:
+            return h, alpha
+        else:
+            return h
 
     def save(self, filename):
 
         """
-
+        Save learned model to disk.
+        
+        Parameters:
+        - - - - -
+        filename: str
+            model name
         """
 
         torch.save(self.state_dict(), filename)
