@@ -64,6 +64,18 @@ def main(args):
                                clean=True)
 
     validation = dgl.batch(validation)
+
+    if args.no_background:
+        
+        print('Excluding background voxels in model training.')
+        for g in training:
+
+            nodes = np.where(g.ndata['label'] == 0)[0]
+            g.remove_nodes(nodes)
+
+        nodes = np.where(validation.ndata['label'] == 0)[0]
+        validation.remove_nodes(nodes)
+
     val_X = validation.ndata['features']
     val_Y = validation.ndata['label']
 
@@ -130,10 +142,6 @@ def main(args):
             batch_loss.backward()
             optimizer.step()
 
-            if TRAIN_PARAMS['verbose']:
-                print("Batch Loss {:.4f} | Batch Acc {:.4f}".format(
-                batch_loss.item(), batch_acc))
-            
         model.eval()
         with torch.no_grad():
 
@@ -195,6 +203,11 @@ if __name__ == '__main__':
     parser.add_argument('--schema-file', 
                         type=str,
                         help='JSON file with parameters for model, training, and output.')
+
+    parser.add_argument('-no_background', 
+                        help='Exclude background voxels in model training.',
+                        action='store_true',
+                        required=False)
 
     args = parser.parse_args()
 

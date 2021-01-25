@@ -115,9 +115,10 @@ def main(args):
             output, error = process.communicate()
 
             # save learned layer-wise attentions as metric file
-            out_attn_file = '%s%s.L.%s.Attention.func.gii' % (
-                pred_dir, subjects[i], schema['model'])
-            write.save(A, out_attn_file, 'L')
+            if args.alpha:
+                out_attn_file = '%s%s.L.%s.Attention.func.gii' % (
+                    pred_dir, subjects[i], schema['model'])
+                write.save(A, out_attn_file, 'L')
 
             # remove func file
             os.remove(out_func_file)

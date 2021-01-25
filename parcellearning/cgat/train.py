@@ -64,6 +64,18 @@ def main(args):
                                clean=True)
 
     validation = dgl.batch(validation)
+
+    if args.no_background:
+        
+        print('Excluding background voxels in model training.')
+        for g in training:
+
+            nodes = np.where(g.ndata['label'] == 0)[0]
+            g.remove_nodes(nodes)
+
+        nodes = np.where(validation.ndata['label'] == 0)[0]
+        validation.remove_nodes(nodes)
+
     val_X = validation.ndata['features']
     val_Y = validation.ndata['label']
 
@@ -151,10 +163,6 @@ def main(args):
             train_lb += batch_lb
             train_acc += batch_acc
 
-            if TRAIN_PARAMS['verbose']:
-                print("Batch Loss {:.4f} | Batch Le {:4f} | Batch Lg {:.4f} | Batch Lb {:4f} | Batch Acc {:.4f}".format(
-                batch_loss.item(), batch_le.item(), batch_lg.item(), batch_lb.item(), batch_acc))
-
             # accumulate the gradients from each batch
             if (iteration+1) % TRAIN_PARAMS['n_batch'] == 0:
                 optimizer.step()
@@ -240,6 +248,11 @@ if __name__ == '__main__':
     parser.add_argument('--schema-file', 
                         type=str,
                         help='JSON file with parameters for model, training, and output.')
+                        
+    parser.add_argument('-no_background', 
+                        help='Exclude background voxels in model training.',
+                        action='store_true',
+                        required=False)
 
     args = parser.parse_args()
 
