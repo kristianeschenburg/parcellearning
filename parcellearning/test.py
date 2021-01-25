@@ -18,7 +18,12 @@ def main(args):
 
     schema = load_schema(args.schema_file)
 
-    pred_dir = '%s/predictions/' % (schema['data']['out'])
+    if args.no_background:
+        print('Excluding background in accuracy calculations')
+        pred_dir = '%s/predictions/no_background/' % (schema['data']['out'])
+    else:
+        pred_dir = '%s/predictions/' % (schema['data']['out'])
+
     Path(pred_dir).mkdir(parents=True, exist_ok=True)
 
     features = schema['features']
@@ -53,11 +58,20 @@ def main(args):
 
             test_X = graph.ndata['features']
             test_Y = graph.ndata['label']
+            idx = graph.ndata['idx']
 
             P = np.zeros((32492, 2))
 
             test_logits = model(**{'g': graph, 'inputs': test_X, 'label': test_Y})
             _,indices = torch.max(test_logits, dim=1)
+
+            if args.no_background:
+
+                background = (test_Y == 0)
+                indices = indices[~background]
+                test_Y = test_Y[~background]
+                idx = idx[~background]
+
             correct = torch.sum(indices == test_Y)
 
             # compute accuracy and f1-score
@@ -72,8 +86,8 @@ def main(args):
             indices[indices == 0] = -1
             test_Y[test_Y == 0] = -1
             # save prediction and ground truth to single file
-            P[graph.ndata['idx'], 0] = indices
-            P[graph.ndata['idx'], 1] = test_Y
+            P[idx, 0] = indices
+            P[idx, 1] = test_Y
             
             # save output predictions as metric file
             out_func_file = '%s%s.L.%s.func.gii' % (
@@ -93,7 +107,7 @@ def main(args):
             os.remove(out_func_file)
 
             # store predicted maps
-            predictions[graph.ndata['idx'], i] = indices
+            predictions[idx, i] = indices
 
     print('Mean accuracy: %.3f' % accuracies.mean())
 
@@ -168,7 +182,10 @@ if __name__ == '__main__':
                         default='testing', 
                         choices=['testing', 'validation'],
                         required=False)
-
+    parser.add_argument('-no_background', 
+                        help='Exclude background voxels in accuracy calculation.',
+                        action='store_true',
+                        required=False)
     args = parser.parse_args()
 
     main(args)
