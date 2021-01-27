@@ -72,7 +72,7 @@ class GAT(nn.Module):
                 num_hidden * self.num_heads, num_hidden, self.num_heads,
                 feat_drop, attn_drop, negative_slope, residual, self.activation, allow_zero_in_degree))
             
-        # output projection
+        # output layer
         self.gat_layers.append(GATConv(
             num_hidden * self.num_heads, num_classes, self.num_out_heads,
             feat_drop, attn_drop, negative_slope, residual, None, allow_zero_in_degree))
@@ -94,7 +94,7 @@ class GAT(nn.Module):
         """
 
         h = inputs
-        for l in range(self.num_layers):
+        for l in range(self.num_layers-1):
             h = self.gat_layers[l](g, h).flatten(1)
             h = h.flatten(1)
 
