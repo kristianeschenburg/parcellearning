@@ -176,12 +176,14 @@ if __name__ == '__main__':
     parser.add_argument('--schema-file', 
                         type=str,
                         help='JSON file with parameters for model, training, and output.')
+
     parser.add_argument('--data', 
                         type=str, 
                         help='Assess model performance on test or validation set.',
                         default='testing', 
                         choices=['testing', 'validation'],
                         required=False)
+                        
     parser.add_argument('-no_background', 
                         help='Exclude background voxels in accuracy calculation.',
                         action='store_true',
