@@ -1,6 +1,6 @@
 import argparse, json, os, time
 
-from parcellearning import jkgat
+from parcellearning import gatLin
 from parcellearning.utilities import gnnio
 from parcellearning.utilities.early_stop import EarlyStopping
 from parcellearning.utilities.batch import partition_graphs
@@ -83,7 +83,7 @@ def main(args):
     # - - - - - - - - - - - - #
 
     # instantiate model using schema parameters
-    model = jkgat.JKGAT(**MODEL_PARAMS)
+    model = gatLin.GATLIN(**MODEL_PARAMS)
 
     # instantiate Adam optimizer using scheme parameters
     optimizer = torch.optim.Adam(model.parameters(), **OPT_PARAMS)
@@ -93,6 +93,7 @@ def main(args):
     stopper = EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
 
     progress = {k: [] for k in ['Epoch',
+                                'Duration',
                                 'Train Loss',
                                 'Train Acc',
                                 'Val Loss',
@@ -108,6 +109,7 @@ def main(args):
         batches = partition_graphs(training, TRAIN_PARAMS['n_batch'])
 
         model.train()
+        t0 = time.time()
 
         # zero the gradients for this epoch
         optimizer.zero_grad()
@@ -115,6 +117,8 @@ def main(args):
         # aggregate training batch losses
         train_loss = 0
         train_le = 0
+        train_lg = 0
+        train_lb = 0
 
         # aggregate training batch accuracies
         train_acc = 0
@@ -137,20 +141,23 @@ def main(args):
             batch_acc = (batch_indices == batch_Y).sum() / batch_Y.shape[0]
 
             # apply backward parameter update pass
-            optimizer.zero_grad()
             batch_loss.backward()
-            optimizer.step()
 
+            # update training performance
+            train_loss += batch_loss
+            train_acc += batch_acc
+
+            # accumulate the gradients from each batch
+            if (iteration+1) % TRAIN_PARAMS['n_batch'] == 0:
+                optimizer.step()
+                optimizer.zero_grad()
+
+        dur.append(time.time() - t0)
+
+        # switch model into evaluation mode 
+        # so we don't update the gradients using the validation data
         model.eval()
         with torch.no_grad():
-
-            G = dgl.batch(training)
-
-            train_logits = model(G, G.ndata['features'])
-            train_loss = cross_entropy(train_logits, G.ndata['label'])
-            _, train_indices = torch.max(F.softmax(train_logits, dim=1), dim=1)
-            train_acc = (train_indices == G.ndata['label']).sum() / G.ndata['label'].shape[0]
-
             # push validation through network
             val_logits = model(validation, val_X)
 
@@ -162,21 +169,28 @@ def main(args):
             _, val_indices = torch.max(F.softmax(val_logits, dim=1), dim=1)
             val_acc = (val_indices == val_Y).sum() / val_Y.shape[0]
 
-            # Show current performance
-            print("Epoch {:05d} | Time(s) {:.4f} | Train Loss {:.4f} | Train Acc {:.4f} | Val Loss {:.4f} | Val Acc {:.4f}".format(
-                epoch, np.mean(dur),
-                train_loss.item(), train_acc.item(),
-                val_loss.item(), val_acc.item()))
+        train_loss /= TRAIN_PARAMS['n_batch']
+        train_acc /= TRAIN_PARAMS['n_batch']
 
-            progress['Epoch'].append(epoch)
+        # Show current performance
+        print("Epoch {:05d} | Time(s) {:.4f} | Train Loss {:.4f} | Train Acc {:.4f} | Val Loss {:.4f} | Val Acc {:.4f}".format(
+            epoch, np.mean(dur),
+            train_loss.item(), train_acc.item(),
+            val_loss.item(), val_acc.item()))
 
-            # update training performance
-            progress['Train Loss'].append(train_loss.item())
-            progress['Train Acc'].append(train_acc.item())
-            
-            # update validation performance
-            progress['Val Loss'].append(val_loss.item())
-            progress['Val Acc'].append(val_acc.item())
+        progress['Epoch'].append(epoch)
+        if epoch > 3:
+            progress['Duration'].append(time.time() - t0)
+        else:
+            progress['Duration'].append(0)
+
+        # update training performance
+        progress['Train Loss'].append(train_loss.item())
+        progress['Train Acc'].append(train_acc.item())
+        
+        # update validation performance
+        progress['Val Loss'].append(val_loss.item())
+        progress['Val Acc'].append(val_acc.item())
 
 
         # set up early stopping criteria on validation loss 
@@ -198,11 +212,11 @@ def main(args):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='JKGAT')
+    parser = argparse.ArgumentParser(description='GAT')
     parser.add_argument('--schema-file', 
                         type=str,
                         help='JSON file with parameters for model, training, and output.')
-
+                        
     parser.add_argument('-no_background', 
                         help='Exclude background voxels in model training.',
                         action='store_true',

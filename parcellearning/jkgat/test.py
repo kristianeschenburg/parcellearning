@@ -51,6 +51,8 @@ def main(args):
 
     predictions = np.zeros((32492, len(graphs)))
 
+    agg_alpha = []
+
     for i, graph in enumerate(graphs):
         model.eval()
 
@@ -62,12 +64,11 @@ def main(args):
 
             P = np.zeros((32492, 2))*np.nan
 
-            if args.alpha:
-                test_logits, alpha = model(**{'g': graph, 'inputs': test_X, 'label': test_Y, 'return_alpha': args.alpha})
-                A = np.zeros((32492, alpha.shape[1]))
+            test_logits, alpha = model(**{'g': graph, 'inputs': test_X, 'label': test_Y, 'return_alpha': True})
+            A = np.zeros((32492, alpha.shape[1]))
+            A[idx, :] = alpha
 
-            else:
-                test_logits = model(**{'g': graph, 'inputs': test_X, 'label': test_Y})
+            agg_alpha.append(A)
 
             _,indices = torch.max(test_logits, dim=1)
 
@@ -78,11 +79,6 @@ def main(args):
                 test_Y = test_Y[~background]
                 idx = idx[~background]
 
-                if args.alpha:
-                    A[indices] = alpha[~background]
-            else:
-                A[indices] = alpha
-            
             correct = torch.sum(indices == test_Y)
 
             # compute accuracy and f1-score
@@ -115,10 +111,9 @@ def main(args):
             output, error = process.communicate()
 
             # save learned layer-wise attentions as metric file
-            if args.alpha:
-                out_attn_file = '%s%s.L.%s.Attention.func.gii' % (
-                    pred_dir, subjects[i], schema['model'])
-                write.save(A, out_attn_file, 'L')
+            out_attn_file = '%s%s.L.%s.Attention.func.gii' % (
+                pred_dir, subjects[i], schema['model'])
+            write.save(A, out_attn_file, 'L')
 
             # remove func file
             os.remove(out_func_file)
@@ -141,7 +136,7 @@ def main(args):
     os.remove(out_func_file)
 
 
-    # save consensus map
+    # save consensus prediction map
     axis = 1
     u, idx = np.unique(predictions, return_inverse=True)
     consensus = u[np.argmax(np.apply_along_axis(np.bincount, axis, idx.reshape(predictions.shape),
@@ -158,6 +153,10 @@ def main(args):
 
     os.remove(out_func_file)
 
+    # save consensus attention map
+    agg_alpha = np.stack(agg_alpha, axis=2).mean(2)
+    out_func_file = '%s%s.attention.consensus.%s.func.gii' % (pred_dir, schema['model'], args.data)
+    write.save(agg_alpha, out_func_file, 'L')
 
     # plot test performance metrics
     df = pd.DataFrame(np.column_stack([accuracies, F, subjects]), columns=['acc', 'f1', 'subject'])
@@ -203,10 +202,6 @@ if __name__ == '__main__':
     parser.add_argument('-no_background', 
                         help='Exclude background voxels in accuracy calculation.',
                         action='store_true',
-                        required=False)
-    parser.add_argument('-alpha', 
-                        help='Return layerwise attention values.', 
-                        action='store_true', 
                         required=False)
 
     args = parser.parse_args()
