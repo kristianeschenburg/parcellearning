@@ -1,3 +1,3 @@
-from .gat import GAT
+from .gatLin import GATLIN
 
-__all__ = ['GAT']
+__all__ = ['GATLIN']
