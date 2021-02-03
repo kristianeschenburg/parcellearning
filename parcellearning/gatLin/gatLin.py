@@ -17,6 +17,8 @@ class GATLIN(nn.Module):
     
     """
     Instantiate a Graph Attention Network model.
+    This network pushes the final GATConv layer through a linear layer
+    to generate network logits.
     
     Parameters:
     - - - - -
@@ -93,12 +95,14 @@ class GATLIN(nn.Module):
         """
 
         h = inputs
-        for l in range(self.num_layers-1):
-            h = self.gat_layers[l](g, h).flatten(1)
+        for l in range(self.num_layers):
+            print(self.layers[l])
+            h = self.layers[l](g, h).flatten(1)
             h = h.flatten(1)
 
         # output projection
-        logits = self.gat_layers[-1](g,h).mean(1)
+        print(self.layers[-1])
+        logits = self.layers[-1](h)
         
         return logits
 

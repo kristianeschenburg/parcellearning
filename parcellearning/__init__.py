@@ -1,3 +1,3 @@
-__all__ = ['conv', 'functional', 'cgat', 'gat', 'gatLin', 'gauss', 'gcn', 'jkgat', 'utilities']
+__all__ = ['conv', 'fn', 'functional', 'cgat', 'gat', 'gatLin', 'gauss', 'gcn', 'jkgat', 'pairgat', 'utilities']
 
 from . import *
