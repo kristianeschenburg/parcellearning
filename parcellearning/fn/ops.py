@@ -11,11 +11,12 @@ def cosine(nodes):
     # representing the messages incident on source nodes with E edges
     m = nodes.mailbox['m']
     print(m.shape)
+    print(m.ndim)
 
     N = m.shape[1]
     N = (N*(N-1))/2
 
-    if m.ndim > 2:
+    if m.ndim > 3:
         m = m.transpose(1,2)
         e = torch.matmul(m, m.transpose(2, 3))
     else:
