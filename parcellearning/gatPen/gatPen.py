@@ -91,16 +91,6 @@ class GAT(nn.Module):
         - - - - -
         logits: tensor
             output layer 
-
-        The assumption in this model is that the object ```g``` also contains
-        a node feature called ```idx```.  ```idx``` the index of the vertex.
-        
-        Due to the spatial normalization of the training data, we know that a 
-        given index corresponds to a given label across all training graphs.
-        Each index is associated with a set candidate labels, based on what
-        labels the index received in the training data.  ```cost``` is a matrix 
-        that assigns a cost value to a label assignment that is not found in the
-        training data.
         """
 
         h = inputs
@@ -110,12 +100,6 @@ class GAT(nn.Module):
 
         # output projection
         logits = self.gat_layers[-1](g,h).mean(1)
-
-        if 'cost' in kwds.keys():
-            cost = kwds['cost'][g.ndata['idx']]
-
-        # penalize implausible label assignments
-        logits = logits - cost
         
         return logits
 

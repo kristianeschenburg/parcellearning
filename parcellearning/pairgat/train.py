@@ -1,6 +1,6 @@
 import argparse, json, os, time
 
-from parcellearning import gat
+from parcellearning import pairgat
 from parcellearning.utilities import gnnio
 from parcellearning.utilities.early_stop import EarlyStopping
 from parcellearning.utilities.batch import partition_graphs
@@ -83,7 +83,7 @@ def main(args):
     # - - - - - - - - - - - - #
 
     # instantiate model using schema parameters
-    model = gat.GAT(**MODEL_PARAMS)
+    model = pairgat.PAIRGAT(**MODEL_PARAMS)
 
     # instantiate Adam optimizer using scheme parameters
     optimizer = torch.optim.Adam(model.parameters(), **OPT_PARAMS)

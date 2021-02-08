@@ -10,8 +10,6 @@ def cosine(nodes):
     # ```m``` is a matrix of N nodes x E edges x F features
     # representing the messages incident on source nodes with E edges
     m = nodes.mailbox['m']
-    print(m.shape)
-    print(m.ndim)
 
     N = m.shape[1]
     N = (N*(N-1))/2

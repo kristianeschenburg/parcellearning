@@ -11,6 +11,7 @@ from dgl.nn.pytorch import edge_softmax
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import Linear
 
 
 class PAIRGAT(nn.Module):
@@ -42,6 +43,7 @@ class PAIRGAT(nn.Module):
     residual:
         use residual connection
     """
+
     def __init__(self,
                  num_layers,
                  in_dim,
@@ -77,7 +79,7 @@ class PAIRGAT(nn.Module):
                            return_attention=False))
 
         # hidden layers
-        for l in range(1, num_layers-1):
+        for l in range(1, num_layers):
             self.layers.append(PAIRConv(in_feats=(num_hidden+1) * self.num_heads,
                                                   out_feats=self.num_hidden,
                                                   num_heads=self.num_heads,
@@ -89,15 +91,9 @@ class PAIRGAT(nn.Module):
                                                   return_attention=False))
         
         # output layer
-        self.layers.append(GATConv(in_feats=(num_hidden+1) * self.num_heads,
-                                              out_feats=num_classes,
-                                              num_heads=self.num_out_heads,
-                                              feat_drop=feat_drop,
-                                              attn_drop=attn_drop,
-                                              negative_slope=negative_slope,
-                                              activation=activation,
-                                              allow_zero_in_degree=allow_zero_in_degree,
-                                              return_attention=False))
+        self.layers.append(Linear((num_hidden+1) * self.num_heads, num_classes, bias=True))
+
+        print(self.layers)
 
     def forward(self, g=None, inputs=None, **kwds):
         
@@ -121,7 +117,7 @@ class PAIRGAT(nn.Module):
             h = h.flatten(1)
 
         # output projection
-        logits = self.layers[-1](g,h).mean(1)
+        logits = self.layers[-1](h)
         
         return logits
 

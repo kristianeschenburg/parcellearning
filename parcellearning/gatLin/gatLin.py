@@ -96,12 +96,10 @@ class GATLIN(nn.Module):
 
         h = inputs
         for l in range(self.num_layers):
-            print(self.layers[l])
             h = self.layers[l](g, h).flatten(1)
             h = h.flatten(1)
 
         # output projection
-        print(self.layers[-1])
         logits = self.layers[-1](h)
         
         return logits

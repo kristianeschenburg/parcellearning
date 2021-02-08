@@ -64,17 +64,6 @@ def main(args):
 
     validation = dgl.batch(validation)
 
-    if args.no_background:
-        
-        print('Excluding background voxels in model training.')
-        for g in training:
-
-            nodes = np.where(g.ndata['label'] == 0)[0]
-            g.remove_nodes(nodes)
-
-        nodes = np.where(validation.ndata['label'] == 0)[0]
-        validation.remove_nodes(nodes)
-
     val_X = validation.ndata['features']
     val_Y = validation.ndata['label']
 
@@ -93,6 +82,7 @@ def main(args):
     stopper = EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
 
     progress = {k: [] for k in ['Epoch',
+                                'Duration',
                                 'Train Loss',
                                 'Train Acc',
                                 'Val Loss',
@@ -101,20 +91,20 @@ def main(args):
     cross_entropy = torch.nn.CrossEntropyLoss()
 
     dur = []
-    print('Training model')
+    print('\nTraining model\n')
     for epoch in range(TRAIN_PARAMS['epochs']):
 
         # learn model on training data
         batches = partition_graphs(training, TRAIN_PARAMS['n_batch'])
 
         model.train()
+        t0 = time.time()
 
         # zero the gradients for this epoch
         optimizer.zero_grad()
         
         # aggregate training batch losses
         train_loss = 0
-        train_le = 0
 
         # aggregate training batch accuracies
         train_acc = 0
@@ -137,20 +127,25 @@ def main(args):
             batch_acc = (batch_indices == batch_Y).sum() / batch_Y.shape[0]
 
             # apply backward parameter update pass
-            optimizer.zero_grad()
             batch_loss.backward()
-            optimizer.step()
 
+            print('Batch: %i | Batch Acc: %.3f | Batch Loss: %.3f ' % (iteration+1, batch_acc.item(), batch_loss.item()))
+
+            # update training performance
+            train_loss += batch_loss
+            train_acc += batch_acc
+
+            # accumulate the gradients from each batch
+            if (iteration+1) % TRAIN_PARAMS['n_batch'] == 0:
+                optimizer.step()
+                optimizer.zero_grad()
+
+        dur.append(time.time() - t0)
+
+        # switch model into evaluation mode 
+        # so we don't update the gradients using the validation data
         model.eval()
         with torch.no_grad():
-
-            G = dgl.batch(training)
-
-            train_logits = model(G, G.ndata['features'])
-            train_loss = cross_entropy(train_logits, G.ndata['label'])
-            _, train_indices = torch.max(F.softmax(train_logits, dim=1), dim=1)
-            train_acc = (train_indices == G.ndata['label']).sum() / G.ndata['label'].shape[0]
-
             # push validation through network
             val_logits = model(validation, val_X)
 
@@ -161,22 +156,29 @@ def main(args):
             # accuracy
             _, val_indices = torch.max(F.softmax(val_logits, dim=1), dim=1)
             val_acc = (val_indices == val_Y).sum() / val_Y.shape[0]
+        
+        train_loss /= TRAIN_PARAMS['n_batch']
+        train_acc /= TRAIN_PARAMS['n_batch']
 
-            # Show current performance
-            print("Epoch {:05d} | Time(s) {:.4f} | Train Loss {:.4f} | Train Acc {:.4f} | Val Loss {:.4f} | Val Acc {:.4f}".format(
-                epoch, np.mean(dur),
-                train_loss.item(), train_acc.item(),
-                val_loss.item(), val_acc.item()))
+        # Show current performance
+        print("Epoch {:05d} | Time(s) {:.4f} | Train Loss {:.4f} | Train Acc {:.4f} | Val Loss {:.4f} | Val Acc {:.4f}".format(
+            epoch, np.mean(dur),
+            train_loss.item(), train_acc.item(),
+            val_loss.item(), val_acc.item()))
 
-            progress['Epoch'].append(epoch)
+        progress['Epoch'].append(epoch)
+        if epoch > 3:
+            progress['Duration'].append(time.time() - t0)
+        else:
+            progress['Duration'].append(0)
 
-            # update training performance
-            progress['Train Loss'].append(train_loss.item())
-            progress['Train Acc'].append(train_acc.item())
-            
-            # update validation performance
-            progress['Val Loss'].append(val_loss.item())
-            progress['Val Acc'].append(val_acc.item())
+        # update training performance
+        progress['Train Loss'].append(train_loss.item())
+        progress['Train Acc'].append(train_acc.item())
+        
+        # update validation performance
+        progress['Val Loss'].append(val_loss.item())
+        progress['Val Acc'].append(val_acc.item())
 
 
         # set up early stopping criteria on validation loss 
@@ -185,7 +187,6 @@ def main(args):
         early_stop = stopper.step(val_loss.detach().data, model)
         if early_stop:
             break
-
 
     model_output = '%s%s.pt' % (out_dir, schema['model'])
     model.save(filename=model_output)

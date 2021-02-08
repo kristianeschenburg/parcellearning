@@ -116,9 +116,6 @@ def main(args):
         
         # aggregate training batch losses
         train_loss = 0
-        train_le = 0
-        train_lg = 0
-        train_lb = 0
 
         # aggregate training batch accuracies
         train_acc = 0

@@ -28,28 +28,14 @@ class GCNData(DGLDataset):
         output dataset net
     url : str
         URL to download the raw dataset
-    raw_dir : str
-        Specifying the directory that will store the
-        downloaded data or the directory that
-        already stores the input data.
-        Default: ~/.dgl/
-    save_dir : str
-        Directory to save the processed dataset.
-        Default: the value of `raw_dir`
-    force_reload : bool
-        Whether to reload the dataset. Default: False
-    verbose : bool
-        Whether to print out progress information
     """
 
     def __init__(self,
                  subject_list,
                  data_name,
                  url=None,
-                 raw_dir=None,
-                 save_dir=None,
-                 force_reload=False,
-                 verbose=False,
+                 save_subject=False,
+                 save_subject_dir=None,
                  labels = {'dir': '/projects3/parcellation/data/labels/',
                           'extension': '.L.CorticalAreas.fixed.32k_fs_LR.label.gii'},
                  graphs = {'dir': '/projects3/parcellation/data/surfaces/',
@@ -57,10 +43,16 @@ class GCNData(DGLDataset):
                  features={'regionalized': {'dir': '/projects3/parcellation/data/regionalization/Destrieux/',
                                             'extension': '.L.aparc.a2009s.Mean.CrossCorr.csv'}}):
 
+        if save_subject and not save_subject_dir:
+            raise('ERROR: Output directory must be supplied when saving subject-level graphs.')
+
         self.data_name = data_name
         self.feature_map = features
         self.graph_map = graphs
         self.label_map = labels
+
+        self.save_subject = save_subject
+        self.save_subject_dir = save_subject_dir
 
         # load provided list of training subjects
         with open(subject_list, 'r') as f:
@@ -70,10 +62,10 @@ class GCNData(DGLDataset):
 
         super(GCNData, self).__init__(name='GCNData',
                                        url=url,
-                                       raw_dir=raw_dir,
-                                       save_dir=save_dir,
-                                       force_reload=force_reload,
-                                       verbose=verbose)
+                                       raw_dir=None,
+                                       save_dir=None,
+                                       force_reload=False,
+                                       verbose=False)
 
     def download(self):
 
@@ -169,6 +161,10 @@ class GCNData(DGLDataset):
             graph.ndata['label'] = label[gidx]
             graph.ndata['idx'] = gidx
 
+            if self.save_subject:
+                filename='%sgraphs/%s.L.graph.bin' % (self.save_subject_dir, subject)
+                dgl.save_graphs(filename=filename, g_list=graph)
+
             graphs.append(graph)
 
         self.graph = graphs
@@ -226,6 +222,8 @@ def dataset(features=None,
             dir='/projects3/parcellation/',
             dSet=None,
             dType='training',
+            save_subject=False,
+            save_dir=None,
             norm=True,
             aggregate=False,
             clean=True):
@@ -250,17 +248,21 @@ def dataset(features=None,
 
     dName = '%sdata/%s.bin' % (dir, dType)
     subject_list = '%ssubjects/%s.txt' % (dir, dType)
+    with open(subject_list, 'r') as f:
+        subjects = f.read().split()
 
     features_map={'regionalized': {'dir': '%sdata/regionalization/Destrieux/' % (dir),
-                               'extension': '.L.aparc.a2009s.Mean.CrossCorr.csv'},
+                                    'extension': '.L.aparc.a2009s.Mean.CrossCorr.csv'},
                   'sulcal': {'dir': '%sdata/sulcal/' % (dir), 
-                                'extension': '.L.sulc.32k_fs_LR.shape.gii'},
+                                    'extension': '.L.sulc.32k_fs_LR.shape.gii'},
                   'myelin': {'dir': '%sdata/myelin/' % (dir), 
-                                'extension': '.L.MyelinMap.32k_fs_LR.func.gii'},
+                                    'extension': '.L.MyelinMap.32k_fs_LR.func.gii'},
                   'spectral': {'dir': '%sdata/spectra/' % (dir), 
-                                'extension': '.L.midthickness.spectrum.LSA.CPD.csv'},
+                                    'extension': '.L.midthickness.spectrum.LSA.CPD.csv'},
                   'curv': {'dir': '%sdata/curvature/' % (dir),
-                                'extension': '.L.curvature.32k_fs_LR.shape.gii'}}
+                                    'extension': '.L.curvature.32k_fs_LR.shape.gii'},
+                  'reho': {'dir': '%sdata/reho/' % (dir),
+                                    'extension': '.L.Cosine.func.gii'}}
 
     if features is None:
         features = list(features_map.keys())
@@ -273,7 +275,9 @@ def dataset(features=None,
     if not dSet:
         data_set = GCNData(subject_list=subject_list,
                            data_name=dName,
-                           features=fmap)
+                           features=fmap,
+                           save_subject=save_subject,
+                           save_subject_dir=save_dir)
         data_set = data_set.load()
 
     # otherwise, load the specified path
@@ -283,7 +287,10 @@ def dataset(features=None,
 
     # standardize features
     if norm:
-        for graph in data_set:
+
+        for i, graph in enumerate(data_set):
+
+            subject = subjects[i//4]
 
             # standardize the specified features
             for feature in fmap.keys():
@@ -291,6 +298,10 @@ def dataset(features=None,
                 temp = graph.ndata[feature]
                 # normalize each feature column
                 temp = standardize(temp)
+
+                n_nans = torch.isnan(temp).sum()
+                if n_nans > 0:
+                    print('Subject: %s, Graph %i: Feature: %s, NANs: %i' % (subject, i%4, feature, n_nans))
                 graph.ndata[feature] = temp
 
     # aggregate the features of interest
@@ -301,10 +312,47 @@ def dataset(features=None,
 
     # remove all individual features apart from the aggregation
     if clean:
+
         exfeats = [l for l in graph.ndata.keys() if l not in ['features', 'label', 'idx']]
-        for graph in data_set:
+        
+        for i, graph in enumerate(data_set):
+
+            subject = subjects[i//4]
+                    
+            nodes = []
+            nans = []
             for exfeat in exfeats:
+
+                # identify any rows that are all zeros
+                temp = np.abs(graph.ndata[exfeat])
+                if temp.ndim == 1:
+                    temp = temp[:,None]
+
+                nodes.append(torch.where(temp.sum(1) == 0)[0])
+                nans.append(torch.where(torch.isnan(temp).sum(1) > 0)[0])
+
                 graph.ndata.pop(exfeat)
+            
+            nodes.append(torch.where(graph.ndata['label'] == 0)[0])
+            nans.append(torch.where(torch.isnan(graph.ndata['label']))[0])
+
+            nodes = torch.unique(torch.cat(nodes))
+            nans = torch.unique(torch.cat(nans))
+
+            if len(nodes) > 0:
+                print('Subject: %s, Graph %i: Zeros: %i' % (subject, i%4, len(nodes)))
+            if len(nans) > 0:
+                print('Subject: %s, Graph %i: NaNs: %i' % (subject, i%4, len(nans)))
+
+            nodes = torch.cat([nodes, nans],dim=0)
+            nodes = torch.unique(nodes)
+
+            graph.remove_nodes(nodes)
+            
+            if '_ID' in graph.ndata.keys():
+                graph.ndata.pop('_ID')
+            if '_ID' in graph.edata.keys():
+                graph.edata.pop('_ID')
 
     # add self loop connections
     for graph in data_set:
