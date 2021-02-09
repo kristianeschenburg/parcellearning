@@ -121,13 +121,15 @@ def main(args):
 
             # push batch through network
             batch_logits = model(batch, batch_X, **{'cost': REG})
+            # compute softmax of network
+            batch_SM = F.softmax(batch_logits, dim=1)
             
             # compute batch performance
             # loss
-            batch_loss = cross_entropy(batch_logits, batch_Y)
+            batch_loss = cross_entropy(batch_SM, batch_Y)
             
             # accuracy
-            _, batch_indices = torch.max(F.softmax(batch_logits, dim=1), dim=1)
+            _, batch_indices = torch.max(batch_SM, dim=1)
             batch_acc = (batch_indices == batch_Y).sum() / batch_Y.shape[0]
 
             # apply backward parameter update pass
@@ -152,13 +154,14 @@ def main(args):
         with torch.no_grad():
             # push validation through network
             val_logits = model(validation, val_X)
+            val_SM = F.softmax(val_logits, dim=1)
 
             # compute validation performance
             # loss
-            val_loss = cross_entropy(val_logits, val_Y, **{'cost': REG})
+            val_loss = cross_entropy(val_SM, val_Y, **{'cost': REG})
 
             # accuracy
-            _, val_indices = torch.max(F.softmax(val_logits, dim=1), dim=1)
+            _, val_indices = torch.max(val_SM, dim=1)
             val_acc = (val_indices == val_Y).sum() / val_Y.shape[0]
 
         train_loss /= TRAIN_PARAMS['n_batch']
