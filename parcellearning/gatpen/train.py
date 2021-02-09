@@ -206,7 +206,7 @@ def main(args):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='GAT')
+    parser = argparse.ArgumentParser(description='GATPEN')
     parser.add_argument('--schema-file', 
                         type=str,
                         help='JSON file with parameters for model, training, and output.')
