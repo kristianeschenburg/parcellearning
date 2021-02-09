@@ -1,6 +1,6 @@
 import argparse, json, os, time
 
-from parcellearning import gat
+from parcellearning import gatpen
 from parcellearning.utilities import gnnio
 from parcellearning.utilities.early_stop import EarlyStopping
 from parcellearning.utilities.batch import partition_graphs
@@ -9,6 +9,7 @@ from parcellearning.utilities.load import load_schema
 from shutil import copyfile
 from pathlib import Path
 
+import pandas as pd
 import numpy as np
 
 import dgl
@@ -44,6 +45,9 @@ def main(args):
     TRAIN_PARAMS = schema['training_parameters']
     STOP_PARAMS = schema['stopping_parameters']
 
+    REG = pd.read_csv(schema['spatial_regularizer'], index_col=[0])
+    REG = torch.Tensor(np.asarray(REG))
+
     # - - - - - - - - - - - - - - - - - - - - #
     # - - - - - - - - - - - - - - - - - - - - #
 
@@ -72,7 +76,7 @@ def main(args):
     # - - - - - - - - - - - - #
 
     # instantiate model using schema parameters
-    model = gat.GAT(**MODEL_PARAMS)
+    model = gatpen.GATPEN(**MODEL_PARAMS)
 
     # instantiate Adam optimizer using scheme parameters
     optimizer = torch.optim.Adam(model.parameters(), **OPT_PARAMS)
@@ -116,7 +120,7 @@ def main(args):
             batch_Y = batch.ndata['label']
 
             # push batch through network
-            batch_logits = model(batch, batch_X)
+            batch_logits = model(batch, batch_X, **{'cost': REG})
             
             # compute batch performance
             # loss
@@ -151,7 +155,7 @@ def main(args):
 
             # compute validation performance
             # loss
-            val_loss = cross_entropy(val_logits, val_Y)
+            val_loss = cross_entropy(val_logits, val_Y, **{'cost': REG})
 
             # accuracy
             _, val_indices = torch.max(F.softmax(val_logits, dim=1), dim=1)

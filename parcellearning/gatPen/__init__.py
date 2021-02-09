@@ -1,3 +1,3 @@
-from .gat import GAT
+from .gatPen import GATPEN
 
-__all__ = ['GAT']
+__all__ = ['GATPEN']
