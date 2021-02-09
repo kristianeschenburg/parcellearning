@@ -1,6 +1,6 @@
 import argparse, json, os, time
 
-from parcellearning import gat
+from parcellearning import gatpen
 from parcellearning.utilities import gnnio
 from parcellearning.utilities.early_stop import EarlyStopping
 from parcellearning.utilities.batch import partition_graphs
@@ -9,6 +9,7 @@ from parcellearning.utilities.load import load_schema
 from shutil import copyfile
 from pathlib import Path
 
+import pandas as pd
 import numpy as np
 
 import dgl
@@ -44,6 +45,9 @@ def main(args):
     TRAIN_PARAMS = schema['training_parameters']
     STOP_PARAMS = schema['stopping_parameters']
 
+    REG = pd.read_csv(schema['spatial_regularizer'], index_col=[0])
+    REG = torch.Tensor(np.asarray(REG))
+
     # - - - - - - - - - - - - - - - - - - - - #
     # - - - - - - - - - - - - - - - - - - - - #
 
@@ -72,7 +76,7 @@ def main(args):
     # - - - - - - - - - - - - #
 
     # instantiate model using schema parameters
-    model = gat.GAT(**MODEL_PARAMS)
+    model = gatpen.GATPEN(**MODEL_PARAMS)
 
     # instantiate Adam optimizer using scheme parameters
     optimizer = torch.optim.Adam(model.parameters(), **OPT_PARAMS)
@@ -116,14 +120,16 @@ def main(args):
             batch_Y = batch.ndata['label']
 
             # push batch through network
-            batch_logits = model(batch, batch_X)
+            batch_logits = model(batch, batch_X, **{'cost': REG})
+            # compute softmax of network
+            batch_SM = F.softmax(batch_logits, dim=1)
             
             # compute batch performance
             # loss
-            batch_loss = cross_entropy(batch_logits, batch_Y)
+            batch_loss = cross_entropy(batch_SM, batch_Y)
             
             # accuracy
-            _, batch_indices = torch.max(F.softmax(batch_logits, dim=1), dim=1)
+            _, batch_indices = torch.max(batch_SM, dim=1)
             batch_acc = (batch_indices == batch_Y).sum() / batch_Y.shape[0]
 
             # apply backward parameter update pass
@@ -148,13 +154,14 @@ def main(args):
         with torch.no_grad():
             # push validation through network
             val_logits = model(validation, val_X)
+            val_SM = F.softmax(val_logits, dim=1)
 
             # compute validation performance
             # loss
-            val_loss = cross_entropy(val_logits, val_Y)
+            val_loss = cross_entropy(val_SM, val_Y, **{'cost': REG})
 
             # accuracy
-            _, val_indices = torch.max(F.softmax(val_logits, dim=1), dim=1)
+            _, val_indices = torch.max(val_SM, dim=1)
             val_acc = (val_indices == val_Y).sum() / val_Y.shape[0]
 
         train_loss /= TRAIN_PARAMS['n_batch']

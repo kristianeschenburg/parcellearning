@@ -260,18 +260,16 @@ def dataset(features=None,
                   'spectral': {'dir': '%sdata/spectra/' % (dir), 
                                     'extension': '.L.midthickness.spectrum.LSA.CPD.csv'},
                   'curv': {'dir': '%sdata/curvature/' % (dir),
-                                    'extension': '.L.curvature.32k_fs_LR.shape.gii'},
-                  'reho': {'dir': '%sdata/reho/' % (dir),
-                                    'extension': '.L.Cosine.func.gii'}}
+                                    'extension': '.L.curvature.32k_fs_LR.shape.gii'}}
 
     if features is None:
         features = list(features_map.keys())
         
     features.sort()
     fmap = {k: features_map[k] for k in features}
-
+    
     # by default, load the whole dataset
-    # it will be created if it does not exist 
+    # it will be created if it does not exist
     if not dSet:
         data_set = GCNData(subject_list=subject_list,
                            data_name=dName,
@@ -287,7 +285,6 @@ def dataset(features=None,
 
     # standardize features
     if norm:
-
         for i, graph in enumerate(data_set):
 
             subject = subjects[i//4]
@@ -312,17 +309,14 @@ def dataset(features=None,
 
     # remove all individual features apart from the aggregation
     if clean:
-
         exfeats = [l for l in graph.ndata.keys() if l not in ['features', 'label', 'idx']]
         
         for i, graph in enumerate(data_set):
-
             subject = subjects[i//4]
-                    
             nodes = []
             nans = []
+            
             for exfeat in exfeats:
-
                 # identify any rows that are all zeros
                 temp = np.abs(graph.ndata[exfeat])
                 if temp.ndim == 1:

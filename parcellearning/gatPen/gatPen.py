@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class GAT(nn.Module):
+class GATPEN(nn.Module):
     
     """
     Instantiate a Graph Attention Network model.
@@ -53,7 +53,7 @@ class GAT(nn.Module):
                  residual=False,
                  allow_zero_in_degree=True):
         
-        super(GAT, self).__init__()
+        super(GATPEN, self).__init__()
         self.num_layers = num_layers
         self.num_heads = num_heads[0]
         self.num_out_heads = num_heads[-1]
@@ -100,6 +100,10 @@ class GAT(nn.Module):
 
         # output projection
         logits = self.gat_layers[-1](g,h).mean(1)
+
+        if 'cost' in kwds:
+            cost = kwds['cost']
+            logits = logits - cost[g.ndata['idx']]
         
         return logits
 
