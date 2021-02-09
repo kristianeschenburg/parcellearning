@@ -110,12 +110,6 @@ class GAT(nn.Module):
 
         # output projection
         logits = self.gat_layers[-1](g,h).mean(1)
-
-        if 'cost' in kwds.keys():
-            cost = kwds['cost'][g.ndata['idx']]
-
-        # penalize implausible label assignments
-        logits = logits - cost
         
         return logits
 
