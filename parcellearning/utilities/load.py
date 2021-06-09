@@ -1,4 +1,4 @@
-from parcellearning import cgat, gat, gauss, gcn, jkgat
+from parcellearning import gat, gcn, jkgat, mlp
 
 import argparse
 import json
@@ -24,11 +24,10 @@ def load_model(schema, model_file):
         loaded model
     """
 
-    model_function = {'CGAT': cgat.CGAT,
-                      'GAT': gat.GAT,
-                      'GAUSS': gauss.GAUSS,
+    model_function = {'GAT': gat.GAT,
                       'GCN': gcn.GCN,
-                      'JKGAT': jkgat.JKGAT}
+                      'JKGAT': jkgat.JKGAT,
+                      'MLP': mlp.MLP}
 
     model = model_function[schema['model']](**schema['model_parameters'])
 
@@ -46,7 +45,7 @@ def load_schema(schema_file):
     with open(schema_file, 'r') as f:
         parameters = json.load(f)
     
-    for param in ['model_parameters', 'loss_parameters', 'optimizer_parameters']:
+    for param in ['model_parameters', 'variables', 'loss_parameters', 'optimizer_parameters']:
         if param in parameters:
             for k,v in parameters[param].items():
                 if v == 'True':

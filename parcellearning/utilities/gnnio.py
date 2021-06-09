@@ -218,127 +218,86 @@ def standardize(dataset):
 
     return dataset
 
-def dataset(features=None,
-            dir='/projects3/parcellation/',
-            dSet=None,
-            dType='training',
-            save_subject=False,
-            save_dir=None,
+def dataset(dSet=None,
+            features=['regionalized', 'spectral', 'sulcal', 'myelin', 'curv'],
+            atlas='glasser',
             norm=True,
-            aggregate=False,
-            clean=True):
+            clean=True,
+            return_bad_nodes=False):
 
     """
     Load datasets that can be plugged in directly to GNN models.
 
     Parameters:
     - - - - -
-    features: list
-        list of features to include in the dataset
-    dir: str
-        base path to data
     dSet: set
         path to previously computed dataset
+    features: list
+        list of variables to include in the model
+    atlas: str
+        parcellation to learn
     norm: bool
-        standardize the columnso of the features
+        standardize the columns of the features
     clean: bool
-        after aggregation of all features into single matrix
         remove single feature columns
     """
 
-    dName = '%sdata/%s.bin' % (dir, dType)
-    subject_list = '%ssubjects/%s.txt' % (dir, dType)
-    with open(subject_list, 'r') as f:
-        subjects = f.read().split()
+    print('Loading dataset')
 
-    features_map={'regionalized': {'dir': '%sdata/regionalization/Destrieux/' % (dir),
-                                    'extension': '.L.aparc.a2009s.Mean.CrossCorr.csv'},
-                  'sulcal': {'dir': '%sdata/sulcal/' % (dir), 
-                                    'extension': '.L.sulc.32k_fs_LR.shape.gii'},
-                  'myelin': {'dir': '%sdata/myelin/' % (dir), 
-                                    'extension': '.L.MyelinMap.32k_fs_LR.func.gii'},
-                  'spectral': {'dir': '%sdata/spectra/' % (dir), 
-                                    'extension': '.L.midthickness.spectrum.LSA.CPD.csv'},
-                  'curv': {'dir': '%sdata/curvature/' % (dir),
-                                    'extension': '.L.curvature.32k_fs_LR.shape.gii'}}
+    data_set = dgl.load_graphs(dSet)[0]
 
-    if features is None:
-        features = list(features_map.keys())
-        
-    features.sort()
-    fmap = {k: features_map[k] for k in features}
-    
-    # by default, load the whole dataset
-    # it will be created if it does not exist
-    if not dSet:
-        data_set = GCNData(subject_list=subject_list,
-                           data_name=dName,
-                           features=fmap,
-                           save_subject=save_subject,
-                           save_subject_dir=save_dir)
-        data_set = data_set.load()
-
-    # otherwise, load the specified path
-    # assumes the feature names are the same as those in the full dataset
-    else:
-        data_set = dgl.load_graphs(dSet)[0]
+    # select the atlas file to use
+    # controls which parcellation we are trying to learn
+    # i.e. if atlas == 'destrieux', we'll train a classifier to learn
+    # the destrieux regions
+    if atlas is not None:
+        for graph in data_set:
+            graph.ndata['label'] = graph.ndata[atlas].long()
 
     # standardize features
     if norm:
         for i, graph in enumerate(data_set):
 
-            subject = subjects[i//4]
-
-            # standardize the specified features
-            for feature in fmap.keys():
-
+            for feature in features:
                 temp = graph.ndata[feature]
-                # normalize each feature column
                 temp = standardize(temp)
 
-                n_nans = torch.isnan(temp).sum()
-                if n_nans > 0:
-                    print('Subject: %s, Graph %i: Feature: %s, NANs: %i' % (subject, i%4, feature, n_nans))
-                graph.ndata[feature] = temp
+                if temp.ndim == 1:
+                    temp = temp[:,None]
 
-    # aggregate the features of interest
-    if aggregate:
-        for graph in data_set:
-            temp = torch.cat([graph.ndata[f] for f in features], dim=1)
-            graph.ndata['features'] = temp
+                graph.ndata[feature] = temp
+ 
+    # concatenate features, column-wise
+    for graph in data_set:
+        temp = torch.cat([graph.ndata[f] for f in features], dim=1)
+        graph.ndata['features'] = temp
 
     # remove all individual features apart from the aggregation
     if clean:
-        exfeats = [l for l in graph.ndata.keys() if l not in ['features', 'label', 'idx']]
+
+        exfeats = [l for l in graph.ndata.keys() if l not in ['features', 'idx', 'label', 'mask']]
         
         for i, graph in enumerate(data_set):
-            subject = subjects[i//4]
+            
             nodes = []
-            nans = []
             
             for exfeat in exfeats:
+
                 # identify any rows that are all zeros
                 temp = np.abs(graph.ndata[exfeat])
                 if temp.ndim == 1:
                     temp = temp[:,None]
-
-                nodes.append(torch.where(temp.sum(1) == 0)[0])
-                nans.append(torch.where(torch.isnan(temp).sum(1) > 0)[0])
+                    
+                eq_nan = (torch.isnan(temp).sum(1) > 0)
+                nodes.append(torch.where(eq_nan)[0])
 
                 graph.ndata.pop(exfeat)
             
-            nodes.append(torch.where(graph.ndata['label'] == 0)[0])
-            nans.append(torch.where(torch.isnan(graph.ndata['label']))[0])
+            if 'label' in graph.ndata and atlas is not None:
 
-            nodes = torch.unique(torch.cat(nodes))
-            nans = torch.unique(torch.cat(nans))
+                nodes.append(torch.where(torch.isnan(graph.ndata['label']))[0])
 
-            if len(nodes) > 0:
-                print('Subject: %s, Graph %i: Zeros: %i' % (subject, i%4, len(nodes)))
-            if len(nans) > 0:
-                print('Subject: %s, Graph %i: NaNs: %i' % (subject, i%4, len(nans)))
-
-            nodes = torch.cat([nodes, nans],dim=0)
+            nodes = torch.cat(nodes, dim=0)
             nodes = torch.unique(nodes)
 
             graph.remove_nodes(nodes)
@@ -347,10 +306,10 @@ def dataset(features=None,
                 graph.ndata.pop('_ID')
             if '_ID' in graph.edata.keys():
                 graph.edata.pop('_ID')
-
+            
     # add self loop connections
     for graph in data_set:
         graph = dgl.remove_self_loop(graph)
         graph = dgl.add_self_loop(graph)
-
+    
     return data_set

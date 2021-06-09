@@ -110,7 +110,11 @@ class GAT(nn.Module):
 
         # output projection
         logits = self.gat_layers[-1](g,h).mean(1)
-        
+
+        if 'cost' in kwds:
+            cost = kwds['cost']
+            logits = logits - cost[g.ndata['idx']]
+
         return logits
 
     def save(self, filename):

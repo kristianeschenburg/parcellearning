@@ -57,6 +57,7 @@ class JKGAT(nn.Module):
                  negative_slope=0.2,
                  residual=False,
                  allow_zero_in_degree=True,
+                 lstm_layers=2,
                  aggregation='cat'):
         
         super(JKGAT, self).__init__()
@@ -68,7 +69,10 @@ class JKGAT(nn.Module):
         self.num_out_heads = num_heads[-1]
         self.layers = nn.ModuleList()
         self.activation = activation
+        self.lstm_layers=lstm_layers
         self.aggregation = aggregation
+
+        print('Number of LSTM layers: %s' % (self.lstm_layers))
         
         # input projection (no residual)
         self.layers.append(GATConv(
@@ -84,13 +88,14 @@ class JKGAT(nn.Module):
             
         # Jumping Knowledge Layer
         if aggregation == 'cat':
-            self.linear = Linear(self.num_heads * num_hidden * num_layers, num_classes, bias=False)
-            self.layers.append(self.linear)
+            self.output = Linear(self.num_heads * num_hidden * num_layers, num_classes, bias=False)
+            self.layers.append(self.output)
 
         elif aggregation == 'lstm':
             # bidirectional LSTM concats the forward and backward embeddings
             # so final output will be of size 2 * `hidden_size`
-            lstm_layers = 2
+            lstm_layers = self.lstm_layers
+
             self.lstm = LSTM(input_size=num_hidden * self.num_heads, 
                              hidden_size=num_hidden, 
                              num_layers = lstm_layers,
@@ -98,11 +103,11 @@ class JKGAT(nn.Module):
                              bidirectional=True)
 
             self.attn = Linear(2*num_hidden, 1)
-            self.linear = Linear(num_hidden*self.num_heads, num_classes, bias=False)
+            self.output = Linear(num_hidden*self.num_heads, num_classes, bias=False)
 
             self.layers.append(self.lstm)
             self.layers.append(self.attn)
-            self.layers.append(self.linear)   
+            self.layers.append(self.output)   
 
         # initialize model weights
         self.reset_parameters()
@@ -127,7 +132,7 @@ class JKGAT(nn.Module):
         if hasattr(self, 'att'):
             self.att.reset_parameters()
         if hasattr(self, 'linear'):
-            self.linear.reset_parameters()
+            self.output.reset_parameters()
 
     def forward(self, g=None, inputs=None, return_alpha=False, **kwds):
         
@@ -171,16 +176,16 @@ class JKGAT(nn.Module):
 
             # compute final embeddings
             h = (xs * alpha.unsqueeze(-1)).sum(1)
-            h = self.linear(h)
+            h = self.output(h)
 
         # CONCAT aggregator
-        else:
+        elif self.aggregation == 'cat':
             h = torch.cat(xs, dim=1).squeeze()
-            h = self.linear(h)
+            h = self.output(h)
 
         # apply sigmoid activation to jumping-knowledge output
         # logits = torch.sigmoid(h)
-        
+
         if return_alpha:
             return h, alpha
         else:

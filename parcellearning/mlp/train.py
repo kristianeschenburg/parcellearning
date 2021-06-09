@@ -1,16 +1,16 @@
 import argparse, json, os, time
+import mlp
 
-from parcellearning import gatpen
 from parcellearning.utilities import gnnio
 from parcellearning.utilities.early_stop import EarlyStopping
 from parcellearning.utilities.batch import partition_graphs
-from parcellearning.utilities.load import load_schema
+from parcellearning.utilities.load import load_schema, load_model
 
 from shutil import copyfile
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 import dgl
 from dgl.data import register_data_args
@@ -23,7 +23,6 @@ import torch.nn.functional as F
 def main(args):
 
     schema = load_schema(args.schema_file)
-    in_dir = schema['data']['in']
     out_dir = schema['data']['out']
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
@@ -31,10 +30,6 @@ def main(args):
     copy_schema = ''.join([out_dir, args.schema_file.split('/')[-1]])
     if not os.path.exists(copy_schema):
         copyfile(args.schema_file, copy_schema)
-
-    # get features
-    features = schema['features']
-    features.sort()
 
     ##### GET PARAMETERS FROM SCHEMA FILE #####
     # - - - - - - - - - - - - - - - - - - - - #
@@ -45,42 +40,59 @@ def main(args):
     TRAIN_PARAMS = schema['training_parameters']
     STOP_PARAMS = schema['stopping_parameters']
 
-    REG = pd.read_csv(schema['spatial_regularizer'], index_col=[0])
-    REG = torch.Tensor(np.asarray(REG))
+    DATA_PARAMS = schema['variable_parameters']
 
     # - - - - - - - - - - - - - - - - - - - - #
     # - - - - - - - - - - - - - - - - - - - - #
+
+    features = DATA_PARAMS['features']
+    features.sort()
 
     # load training and validation data
-    training = gnnio.dataset(dType='training',
-                             features=features,
+    training = gnnio.dataset(features=features,
                              dSet=schema['data']['training'],
+                             atlas=DATA_PARAMS['response'],
                              norm=True,
-                             aggregate=True,
                              clean=True)
 
-    validation = gnnio.dataset(dType='validation', 
-                               features=features,
+    validation = gnnio.dataset(features=features,
                                dSet=schema['data']['validation'],
+                               atlas=DATA_PARAMS['response'],
                                norm=True,
-                               aggregate=True,
                                clean=True)
 
     validation = dgl.batch(validation)
-
     val_X = validation.ndata['features']
     val_Y = validation.ndata['label']
 
-    ##### MODEL TRAINING #####
+    ##### MODEL INITIALIZATION #####
     # - - - - - - - - - - - - #
     # - - - - - - - - - - - - #
 
     # instantiate model using schema parameters
-    model = gatpen.GATPEN(**MODEL_PARAMS)
+    if args.existing:
+        model_parameters = '%s%s.earlystop.Loss.pt' % (schema['data']['out'], schema['model'])
+        model = load_model(schema, model_parameters)
+
+        model_progress = '%sperformance.%s.json' % (schema['data']['out'], schema['model'])
+        with open(model_progress, 'r') as f:
+            progress = json.load(f)
+    else:
+        print('Training new model')
+        model = mlp.MLP(**MODEL_PARAMS)
+
+        progress = {k: [] for k in ['Epoch',
+                                    'Duration',
+                                    'Train Loss',
+                                    'Train Acc',
+                                    'Val Loss',
+                                    'Val Acc']}
+
+    print(model)
 
     # instantiate Adam optimizer using scheme parameters
     optimizer = torch.optim.Adam(model.parameters(), **OPT_PARAMS)
-
+ 
     # initialize early stopper
     stopped_model_output='%s%s.earlystop.Loss.pt' % (out_dir, schema['model'])
     stopper = EarlyStopping(filename=stopped_model_output, **STOP_PARAMS)
@@ -95,8 +107,15 @@ def main(args):
     cross_entropy = torch.nn.CrossEntropyLoss()
 
     dur = []
+
+    ##### MODEL TRAINING #####
+    # - - - - - - - - - - - - #
+    # - - - - - - - - - - - - #
+
+    starting_epoch = len(progress['Epoch'])
+
     print('\nTraining model\n')
-    for epoch in range(TRAIN_PARAMS['epochs']):
+    for epoch in range(starting_epoch, TRAIN_PARAMS['epochs']):
 
         # learn model on training data
         batches = partition_graphs(training, TRAIN_PARAMS['n_batch'])
@@ -120,16 +139,12 @@ def main(args):
             batch_Y = batch.ndata['label']
 
             # push batch through network
-            batch_logits = model(batch, batch_X, **{'cost': REG})
-            # compute softmax of network
-            batch_SM = F.softmax(batch_logits, dim=1)
-            
-            # compute batch performance
-            # loss
-            batch_loss = cross_entropy(batch_SM, batch_Y)
-            
-            # accuracy
-            _, batch_indices = torch.max(batch_SM, dim=1)
+            batch_logits = model(batch_X)
+            batch_loss = cross_entropy(batch_logits, batch_Y)
+
+            batch_softmax = F.softmax(batch_logits, dim=1)
+
+            _, batch_indices = torch.max(batch_softmax, dim=1)
             batch_acc = (batch_indices == batch_Y).sum() / batch_Y.shape[0]
 
             # apply backward parameter update pass
@@ -152,26 +167,28 @@ def main(args):
         # so we don't update the gradients using the validation data
         model.eval()
         with torch.no_grad():
-            # push validation through network
-            val_logits = model(validation, val_X)
-            val_SM = F.softmax(val_logits, dim=1)
+
+           # push validation through network
+            val_logits = model(val_X)
+            val_loss = cross_entropy(val_logits, val_Y)
 
             # compute validation performance
-            # loss
-            val_loss = cross_entropy(val_SM, val_Y, **{'cost': REG})
-
+            val_softmax = F.softmax(val_logits, dim=1)
+            
             # accuracy
-            _, val_indices = torch.max(val_SM, dim=1)
+            _, val_indices = torch.max(val_softmax, dim=1)
             val_acc = (val_indices == val_Y).sum() / val_Y.shape[0]
 
         train_loss /= TRAIN_PARAMS['n_batch']
         train_acc /= TRAIN_PARAMS['n_batch']
 
         # Show current performance
-        print("Epoch {:05d} | Time(s) {:.4f} | Train Loss {:.4f} | Train Acc {:.4f} | Val Loss {:.4f} | Val Acc {:.4f}".format(
-            epoch, np.mean(dur),
-            train_loss.item(), train_acc.item(),
-            val_loss.item(), val_acc.item()))
+        print("Epoch {:05d} | Time(s) {:.4f} | Train Loss {:.4f} | Train Acc {:.4f} | Val Loss {:.4f} | Val Acc {:.4f}".format(epoch, 
+               np.mean(dur),
+               train_loss.item(), 
+               train_acc.item(),
+               val_loss.item(), 
+               val_acc.item()))
 
         progress['Epoch'].append(epoch)
         if epoch > 3:
@@ -187,13 +204,14 @@ def main(args):
         progress['Val Loss'].append(val_loss.item())
         progress['Val Acc'].append(val_acc.item())
 
-
-        # set up early stopping criteria on validation loss 
-        # if validation loss does not decree for patience=10
-        # save best model in last 10 and break the training
+        # set up early stopping criteria on validation loss
         early_stop = stopper.step(val_loss.detach().data, model)
         if early_stop:
             break
+
+    ##### MODEL SAVING #####
+    # - - - - - - - - - - - - #
+    # - - - - - - - - - - - - #
 
     model_output = '%s%s.pt' % (out_dir, schema['model'])
     model.save(filename=model_output)
@@ -206,14 +224,14 @@ def main(args):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='GATPEN')
+    parser = argparse.ArgumentParser(description='MLP')
     parser.add_argument('--schema-file', 
                         type=str,
                         help='JSON file with parameters for model, training, and output.')
-                        
-    parser.add_argument('-no_background', 
-                        help='Exclude background voxels in model training.',
-                        action='store_true',
+
+    parser.add_argument('--existing', 
+                        help='Load pre-existing model to continue training.', 
+                        action='store_true', 
                         required=False)
 
     args = parser.parse_args()

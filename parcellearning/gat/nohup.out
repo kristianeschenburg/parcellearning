@@ -1,0 +1,35 @@
+Using backend: pytorch
+Loading dataset
+Loading dataset
+Loading existing model.
+Progress file doest exist.
+Creating new.
+GAT(
+  (gat_layers): ModuleList(
+    (0): GATConv(
+      (fc): Linear(in_features=34, out_features=384, bias=False)
+      (feat_drop): Dropout(p=0.1, inplace=False)
+      (attn_drop): Dropout(p=0.1, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+    (1): GATConv(
+      (fc): Linear(in_features=384, out_features=384, bias=False)
+      (feat_drop): Dropout(p=0.1, inplace=False)
+      (attn_drop): Dropout(p=0.1, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+    (2): GATConv(
+      (fc): Linear(in_features=384, out_features=2172, bias=False)
+      (feat_drop): Dropout(p=0.1, inplace=False)
+      (attn_drop): Dropout(p=0.1, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+  )
+)
+Starting at epoch 653
+
+Training model
+
+/mnt/home/keschenb/anaconda3/lib/python3.6/site-packages/torch/autograd/__init__.py:132: UserWarning: CUDA initialization: Found no NVIDIA driver on your system. Please check that you have an NVIDIA GPU and installed a driver from http://www.nvidia.com/Download/index.aspx (Triggered internally at  /pytorch/c10/cuda/CUDAFunctions.cpp:100.)
+  allow_unreachable=True)  # allow_unreachable flag
+Batch: 1 | Batch Acc: 0.448 | Batch Loss: 1.746 

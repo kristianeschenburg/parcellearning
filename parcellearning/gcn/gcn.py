@@ -15,7 +15,7 @@ from dgl.nn.pytorch import edge_softmax, GraphConv
 gcn_msg = fn.copy_src(src='h', out='m')
 gcn_reduce = fn.sum(msg='m', out='h')
 
-
+ 
 class GCN(nn.Module):
 
     """
@@ -25,60 +25,63 @@ class GCN(nn.Module):
     
     Parameters:
     - - - - -
-    in_feats: torch tensor
+    in_dim: torch tensor
         array of node features
     
-    n_hidden: list, int
+    num_hidden: list, int
         number of hidden nodes per layer
     
-    n_layers: int
+    num_layers: int
         number of layers in network
     
-    n_classes: int
+    num_classes: int
         number of classes to predict
     
     activation: function
         activation function to apply
         default: relu
     
-    dropout: float
+    feat_drop: float
         dropout rate, [0,1]
+
+    residual:: bool
+        apply residual skip connections
     """
 
     def __init__(self,
-                 in_feats,
-                 n_classes,
-                 n_hidden,
+                 in_dim,
+                 num_classes,
+                 num_hidden,
+                 num_layers,
+                 feat_drop=0.1,
                  activation=F.relu,
-                 dropout=0.5,
-                 random_seed=None):
+                 negative_slope=0.2,
+                 residual=False,
+                 allow_zero_in_degree=True):
 
         super(GCN, self).__init__()
 
-        if random_seed:
-            th.manual_seed(random_seed)
-
-        if dropout:
+        if feat_drop:
             assert min(
-                0, dropout) >= 0, 'Dropout rate must be greater or equal to 0'
-            assert max(1, dropout) == 1, 'Dropout rate must be less than 1'
+                0, feat_drop) >= 0, 'Dropout rate must be greater or equal to 0'
+            assert max(1, feat_drop) == 1, 'Dropout rate must be less than 1'
 
-        self.n_layers = len(n_hidden)
+        self.num_layers = num_layers
         self.layers = nn.ModuleList()
 
         # input layer
         self.layers.append(
-            GraphConv(in_feats, n_hidden[0], activation=activation))
+            GraphConv(in_dim, num_hidden, activation=activation))
 
         # hidden layers
-        for i in range(self.n_layers - 1):
+        for i in range(self.num_layers - 2):
             self.layers.append(
-                GraphConv(n_hidden[i], n_hidden[i+1], activation=activation))
+                GraphConv(num_hidden, num_hidden, activation=activation))
 
         # output layer
-        self.layers.append(GraphConv(n_hidden[-1], n_classes))
+        self.layers.append(GraphConv(num_hidden, num_classes))
 
-        self.dropout = nn.Dropout(p=dropout)
+        self.dropout = nn.Dropout(p=feat_drop)
 
 
     def forward(self, g=None, inputs=None, **kwds):
@@ -94,8 +97,7 @@ class GCN(nn.Module):
             node features
         """
 
-        h = features
-
+        h=inputs
         for i, layer in enumerate(self.layers):
             if i != 0:
                 h = self.dropout(h)

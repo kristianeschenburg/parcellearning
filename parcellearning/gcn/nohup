@@ -1,0 +1,4 @@
+nohup: ignoring input
+Using backend: pytorch
+usage: train.py [-h] [--schema-file SCHEMA_FILE] [--existing]
+train.py: error: unrecognized arguments: python -u train.py
