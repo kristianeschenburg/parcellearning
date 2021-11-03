@@ -14,7 +14,7 @@ import pysurface
 import argparse
 import json
 
-
+ 
 class GCNData(DGLDataset):
 
     """
@@ -250,9 +250,15 @@ def dataset(dSet=None,
     # controls which parcellation we are trying to learn
     # i.e. if atlas == 'destrieux', we'll train a classifier to learn
     # the destrieux regions
-    if atlas is not None:
+    if atlas is None:
+        pass
+    elif atlas is not 'label':
         for graph in data_set:
             graph.ndata['label'] = graph.ndata[atlas].long()
+    else:
+        print('Using default "label" features.')
+        for graph in data_set:
+            assert 'label' in graph.ndata.keys()
 
     # standardize features
     if norm:
