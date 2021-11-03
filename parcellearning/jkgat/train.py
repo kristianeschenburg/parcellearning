@@ -70,18 +70,21 @@ def main(args):
     # - - - - - - - - - - - - #
 
     # instantiate model using schema parameters
+    # instantiate model using schema parameters
     if args.existing:
-
-        print('Loading preexisting model')
+        print('Loading existing model.')
         model_parameters = '%s%s.earlystop.Loss.pt' % (schema['data']['out'], schema['model'])
         model = load_model(schema, model_parameters)
 
         model_progress = '%sperformance.%s.json' % (schema['data']['out'], schema['model'])
-        with open(model_progress, 'r') as f:
-            progress = json.load(f)
-
+        try:
+            with open(model_progress, 'r') as f:
+                progress = json.load(f)
+        except:
+            print('Progress file doest exist.')
+            print('Creating new.')
+            pass
     else:
-
         print('Training new model')
         model = jkgat.JKGAT(**MODEL_PARAMS)
 
@@ -91,9 +94,9 @@ def main(args):
                                     'Train Acc',
                                     'Val Loss',
                                     'Val Acc']}
-
+        
     print(model)
-
+ 
     # instantiate Adam optimizer using scheme parameters
     optimizer = torch.optim.Adam(model.parameters(), **OPT_PARAMS)
 
@@ -110,9 +113,8 @@ def main(args):
     # - - - - - - - - - - - - #
 
 
-    # if model has already been trained for some time and not finished,
-    # we start at the last completed epoch.  Otherwise we start at 0.
-    starting_epoch = len(progress['Epoch'])
+    starting_epoch = np.max([len(progress['Epoch']), args.starting_epoch])
+    print('Starting at epoch %i' % (starting_epoch))
 
     print('\nTraining model\n')
     for epoch in range(starting_epoch, TRAIN_PARAMS['epochs']):
@@ -200,6 +202,10 @@ def main(args):
         progress['Val Loss'].append(val_loss.item())
         progress['Val Acc'].append(val_acc.item())
 
+        performance_output = '%sperformance.%s.json' % (out_dir, schema['model'])
+        with open(performance_output, "w") as outparams:  
+            json.dump(progress, outparams, ensure_ascii=True, indent=4, sort_keys=True)
+
         # set up early stopping criteria on validation loss
         early_stop = stopper.step(val_loss.detach().data, model)
         if early_stop:
@@ -228,6 +234,12 @@ if __name__ == '__main__':
     parser.add_argument('--existing', 
                         help='Load pre-existing model to continue training.', 
                         action='store_true', 
+                        required=False)
+
+    parser.add_argument('--starting-epoch',
+                        help='Which epoch to start at (for example, if youve trained the model somewhat already).',
+                        default=0,
+                        type=int,
                         required=False)
 
     args = parser.parse_args()
